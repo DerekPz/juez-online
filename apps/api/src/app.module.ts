@@ -6,12 +6,17 @@ import { CacheController } from './modules/cache/cache.controller';
 import { REDIS_CLIENT, createRedisClient } from './infrastructure/cache/redis.provider';
 import { AuthModule } from './modules/auth/auth.module';
 import { ChallengesModule } from './modules/challenges/challenges.module';
+import { DatabaseModule } from './infrastructure/database/database.module';
 
 @Module({
-  imports: [AuthModule, ChallengesModule],
+  imports: [
+    DatabaseModule,  
+    AuthModule,
+    ChallengesModule,
+  ],
   controllers: [HealthController, DbController, CacheController],
   providers: [
-    { provide: PG_POOL, useFactory: () => createPgPool() },
+    // PG_POOL ya lo provee DatabaseModule
     { provide: REDIS_CLIENT, useFactory: () => createRedisClient() },
   ],
 })

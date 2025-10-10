@@ -10,6 +10,25 @@ export class Challenge {
     public updatedAt: Date,
   ) {}
 
+static fromPersistence(row: {
+  id: string;
+  title: string;
+  description: string;
+  status: ChallengeStatus;
+  created_at: Date | string;
+  updated_at: Date | string;
+}) {
+  return new Challenge(
+    row.id,
+    row.title,
+    row.description,
+    row.status,
+    new Date(row.created_at),
+    new Date(row.updated_at),
+  );
+}
+
+
   static create(params: { id: string; title: string; description: string }) {
     if (!params.title || params.title.trim().length < 3) {
       throw new Error('Title must be at least 3 characters');
@@ -47,3 +66,4 @@ export class Challenge {
     this.updatedAt = new Date();
   }
 }
+

@@ -6,36 +6,43 @@ import { ListChallengesUseCase } from '../../core/challenges/use-cases/list-chal
 import { GetChallengeUseCase } from '../../core/challenges/use-cases/get-challenge.use-case';
 import { PublishChallengeUseCase } from '../../core/challenges/use-cases/publish-challenge.use-case';
 import { ArchiveChallengeUseCase } from '../../core/challenges/use-cases/archive-challenge.use-case';
-import { InMemoryChallengeRepo } from '../../infrastructure/database/in-memory/in-memory-challenge.repo';
+import { PG_POOL } from '../../infrastructure/database/postgres.provider';
+import { PostgresChallengeRepo } from '../../infrastructure/database/postgres/postgres-challenge.repo';
+import { DatabaseModule } from '../../infrastructure/database/database.module'; // 👈 si no usas @Global
 
 @Module({
+  imports: [DatabaseModule], // 👈 necesario si DatabaseModule no es global
   controllers: [ChallengesController],
   providers: [
     ChallengesService,
-    { provide: 'ChallengeRepo', useClass: InMemoryChallengeRepo },
+    {
+      provide: 'ChallengeRepo',
+      useFactory: (pool) => new PostgresChallengeRepo(pool),
+      inject: [PG_POOL], // 👈 ahora sí, disponible en este módulo
+    },
     {
       provide: CreateChallengeUseCase,
-      useFactory: (repo: InMemoryChallengeRepo) => new CreateChallengeUseCase(repo),
+      useFactory: (repo) => new CreateChallengeUseCase(repo),
       inject: ['ChallengeRepo'],
     },
     {
       provide: ListChallengesUseCase,
-      useFactory: (repo: InMemoryChallengeRepo) => new ListChallengesUseCase(repo),
+      useFactory: (repo) => new ListChallengesUseCase(repo),
       inject: ['ChallengeRepo'],
     },
     {
       provide: GetChallengeUseCase,
-      useFactory: (repo: InMemoryChallengeRepo) => new GetChallengeUseCase(repo),
+      useFactory: (repo) => new GetChallengeUseCase(repo),
       inject: ['ChallengeRepo'],
     },
     {
       provide: PublishChallengeUseCase,
-      useFactory: (repo: InMemoryChallengeRepo) => new PublishChallengeUseCase(repo),
+      useFactory: (repo) => new PublishChallengeUseCase(repo),
       inject: ['ChallengeRepo'],
     },
     {
       provide: ArchiveChallengeUseCase,
-      useFactory: (repo: InMemoryChallengeRepo) => new ArchiveChallengeUseCase(repo),
+      useFactory: (repo) => new ArchiveChallengeUseCase(repo),
       inject: ['ChallengeRepo'],
     },
   ],
