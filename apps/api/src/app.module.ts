@@ -7,16 +7,20 @@ import { REDIS_CLIENT, createRedisClient } from './infrastructure/cache/redis.pr
 import { AuthModule } from './modules/auth/auth.module';
 import { ChallengesModule } from './modules/challenges/challenges.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
+import { SubmissionsModule } from './modules/submissions/submissions.module';
+import { CacheModule } from './infrastructure/cache/cache.module';
+
 
 @Module({
   imports: [
-    DatabaseModule,  
+    DatabaseModule,
+    CacheModule,
     AuthModule,
     ChallengesModule,
+    SubmissionsModule, 
   ],
   controllers: [HealthController, DbController, CacheController],
   providers: [
-    // PG_POOL ya lo provee DatabaseModule
     { provide: REDIS_CLIENT, useFactory: () => createRedisClient() },
   ],
 })

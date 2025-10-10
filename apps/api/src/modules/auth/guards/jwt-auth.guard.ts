@@ -1,25 +1,26 @@
-import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { TOKEN_SIGNER } from '../../../infrastructure/security/token.provider';
+import {
+  Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject,
+} from '@nestjs/common';
+import { TOKEN_SIGNER } from '../tokens';
+import { TokenSigner } from '../token-signer';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(@Inject(TOKEN_SIGNER) private readonly token: { verify<T = any>(t: string): T }) {}
+  constructor(@Inject(TOKEN_SIGNER) private readonly signer: TokenSigner) {} // 👈 clave
 
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<Request & { user?: any }>();
-    const auth = (req.headers as any)['authorization'] as string | undefined;
+    const req = context.switchToHttp().getRequest();
+    const auth = req.headers['authorization'] || '';
+    const header = Array.isArray(auth) ? auth[0] : auth;
+    const m = header.match(/^Bearer\s+(.+)$/i);
+    if (!m) throw new UnauthorizedException('Missing Bearer token');
 
-    if (!auth || !auth.toLowerCase().startsWith('bearer ')) {
-      throw new UnauthorizedException('Falta encabezado Authorization: Bearer <token>');
-    }
-
-    const raw = auth.slice('bearer '.length);
     try {
-      const payload = this.token.verify(raw); // { sub, username, iat, exp }
-      (req as any).user = payload;            // lo colgamos para usarlo en el handler
+      const payload = this.signer.verify(m[1]);
+      req.user = payload;
       return true;
-    } catch (err) {
-      throw new UnauthorizedException('Token inválido o expirado');
+    } catch {
+      throw new UnauthorizedException('Invalid token');
     }
   }
 }

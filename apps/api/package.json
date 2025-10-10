@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "worker:submissions": "ts-node-dev --transpile-only src/workers/submission.worker.ts",
     "build": "tsc -p .",
     "start": "node dist/main.js"
+    
   },
   "keywords": [],
   "author": "",
