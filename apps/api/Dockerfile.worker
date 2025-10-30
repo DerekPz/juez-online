@@ -1,0 +1,19 @@
+FROM node:20-slim
+
+WORKDIR /usr/src/app/api
+
+COPY package*.json ./
+
+RUN apt-get update && apt-get install -y dos2unix && \
+    npm install -g ts-node typescript && \
+    npm install && \
+    dos2unix ./node_modules/.bin/ts-node && \
+    chmod 755 ./node_modules/.bin/ts-node && \
+    chmod -R 755 ./node_modules/.bin && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+
+RUN chmod -R 755 /usr/src/app
+
+CMD ["npx", "ts-node", "src/workers/submission.worker.ts"]
