@@ -8,6 +8,6 @@ public class Main {
         while (sc.hasNextInt()) {
             sum += sc.nextInt();
         }
-        System.out.println(sum);
+        System.out.println(suma);
     }
 }

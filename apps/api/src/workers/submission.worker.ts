@@ -7,18 +7,29 @@ import fs from "fs";
 import path from "path";
 
 async function runRunnerForAllTests(subId: string, challengeId: string) {
-    const submissionBase = path.resolve(
-        __dirname,
-        "../../data/submissions",
-        subId,
-    );
+    const submissionBase = path.resolve(__dirname, "../core/Submission", subId);
+    // Optional: absolute path on the HOST where submissions folders live.
+    // If provided, the worker will mount host paths (left side of -v) so the
+    // Docker daemon can access the files. Example: /home/azkalagon/.../apps/api/data/submissions
+    const hostSubmissionsDir = process.env.HOST_SUBMISSIONS_DIR || "";
+    const hostSubmissionBase = hostSubmissionsDir
+        ? path.join(hostSubmissionsDir, subId)
+        : submissionBase;
+
     const challengeTests = path.resolve(
         __dirname,
-        "../../data/challenges",
+        "../../apps/api/src/core/challenges",
         challengeId,
         "tests",
     );
+    // Optional: host path for challenges tests (if different from container path)
+    const hostChallengesDir = process.env.HOST_CHALLENGES_DIR || "";
+    const hostChallengeTests = hostChallengesDir
+        ? path.join(hostChallengesDir, challengeId, "tests")
+        : challengeTests;
 
+    // Read meta.json from the container-local submission path (this path is mounted
+    // into the worker via docker-compose). If meta.json is missing, we cannot proceed.
     if (!fs.existsSync(submissionBase)) return null;
     const metaPath = path.join(submissionBase, "meta.json");
     if (!fs.existsSync(metaPath)) return null;
@@ -44,16 +55,37 @@ async function runRunnerForAllTests(subId: string, challengeId: string) {
         // runner will find all input*.in and output*.out in /tests/
     };
 
-    const mountCode = path.join(submissionBase, "code");
-    const mounts = ["-v", `${mountCode}:/code:ro`];
-    // mount challenge tests
-    if (fs.existsSync(challengeTests)) {
-        mounts.push("-v", `${challengeTests}:/tests:ro`);
+    // Decide mounts. When HOST_SUBMISSIONS_DIR is set we MUST mount the host submission
+    // paths for both code and tests (left side of -v must be host paths). We will not
+    // attempt to probe host paths with fs.existsSync because those host paths are not
+    // generally visible from inside the container. We still read meta.json from the
+    // container-local submissionBase above.
+    const mounts: string[] = [];
+
+    if (hostSubmissionsDir) {
+        // Always mount host submission code and tests when HOST_SUBMISSIONS_DIR provided.
+        const hostCode = path.join(hostSubmissionBase, "code");
+        const hostTests = path.join(hostSubmissionBase, "tests");
+        mounts.push("-v", `${hostCode}:/code:ro`);
+        mounts.push("-v", `${hostTests}:/tests:ro`);
     } else {
-        // fallback: if submission includes tests folder in its own dir
-        const localTests = path.join(submissionBase, "tests");
-        if (fs.existsSync(localTests))
-            mounts.push("-v", `${localTests}:/tests:ro`);
+        // Fallback: mount container-local code/tests (these are visible because ./apps/api/data is mounted)
+        const mountCode = path.join(submissionBase, "code");
+        mounts.push("-v", `${mountCode}:/code:ro`);
+        if (fs.existsSync(path.join(submissionBase, "tests"))) {
+            mounts.push(
+                "-v",
+                `${path.join(submissionBase, "tests")}:/tests:ro`,
+            );
+        } else if (fs.existsSync(challengeTests)) {
+            mounts.push("-v", `${challengeTests}:/tests:ro`);
+        }
+    }
+
+    // If a host-level challenges dir was explicitly provided and we did not already mount host tests,
+    // add it as a best-effort fallback (only used when hostSubmissionsDir is not set).
+    if (!hostSubmissionsDir && hostChallengesDir && hostChallengeTests) {
+        mounts.push("-v", `${hostChallengeTests}:/tests:ro`);
     }
 
     const args = [

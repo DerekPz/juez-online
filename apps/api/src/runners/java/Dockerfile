@@ -1,7 +1,7 @@
-FROM openjdk:17-slim
+FROM debian:bullseye-slim
 
-# Instala Python (para scripts del runner)
-RUN apt-get update && apt-get install -y python3 && apt-get clean
+# Instala OpenJDK 17 y Python (para scripts del runner)
+RUN apt-get update && apt-get install -y openjdk-17-jdk python3 && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /runner
 COPY runner.sh /runner/

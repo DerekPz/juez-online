@@ -7,7 +7,7 @@ services:
             dockerfile: Dockerfile.api
         command: npm run dev
         ports:
-            - "3000:3000" # puerto donde escuchará tu API
+            - "3000:3000"
         volumes:
             - ./apps/api:/usr/src/app
             - ./apps/api/data:/usr/src/app/data
@@ -34,6 +34,8 @@ services:
             - "${POSTGRES_PORT:-5432}:5432"
         volumes:
             - pgdata:/var/lib/postgresql/data
+            - ./apps/api/migrations/001_create_challenges.sql:/docker-entrypoint-initdb.d/001_create_challenges.sql
+            - ./apps/api/migrations/002_create_submissions.sql:/docker-entrypoint-initdb.d/002_create_submissions.sql
         networks:
             - judge_net
 
@@ -50,7 +52,6 @@ services:
             retries: 30
         networks:
             - judge_net
-
     runner-python:
         build:
             context: ./apps/api/src/runners/python
@@ -70,7 +71,6 @@ services:
         build:
             context: ./apps/api/src/runners/java
         image: juez_runner_java:local
-
     worker:
         build:
             context: ./apps/api
@@ -89,8 +89,9 @@ services:
             - POSTGRES_USER=juez
             - POSTGRES_PASSWORD=juez
             - POSTGRES_DB=juez_db
-            - REDIS_HOST=redis # 👈 aquí el nombre del servicio de redis
+            - REDIS_HOST=redis
             - REDIS_PORT=6379
+            - HOST_SUBMISSIONS_DIR=/home/azkalagon/2025_2_Proyects/juez-online/apps/api/src/core/Submission
         networks:
             - judge_net
 

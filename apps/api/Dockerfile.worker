@@ -4,7 +4,9 @@ WORKDIR /usr/src/app/api
 
 COPY package*.json ./
 
-RUN apt-get update && apt-get install -y dos2unix && \
+# Install docker CLI (docker.io) so the worker can spawn docker containers,
+# plus dos2unix and node tooling. Keep cleaning apt lists to keep image small.
+RUN apt-get update && apt-get install -y dos2unix docker.io && \
     npm install -g ts-node typescript && \
     npm install && \
     dos2unix ./node_modules/.bin/ts-node && \
