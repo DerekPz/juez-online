@@ -6,13 +6,18 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('submissions')
 export class SubmissionsController {
-  constructor(private readonly svc: SubmissionsService) {}
+  constructor(private readonly svc: SubmissionsService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() dto: CreateSubmissionDto, @CurrentUser() user: any) {
     if (!dto.challengeId) throw new BadRequestException('challengeId is required');
-    const sub = await this.svc.create({ challengeId: dto.challengeId, userId: String(user?.sub) });
+    const sub = await this.svc.create({
+      challengeId: dto.challengeId,
+      userId: String(user?.sub),
+      code: dto.code,
+      language: dto.language,
+    });
     return { id: sub.id, status: sub.status, createdAt: sub.createdAt };
   }
 

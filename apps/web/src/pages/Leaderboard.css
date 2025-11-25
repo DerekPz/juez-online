@@ -1,0 +1,47 @@
+/* Leaderboard page styling */
+.leaderboard-page {
+    padding: 2rem;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.leaderboard-page h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}
+
+.leaderboard-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.leaderboard-controls button {
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.leaderboard-controls button.active {
+    background: var(--accent-hover);
+}
+
+.leaderboard-controls select {
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.loading,
+.error {
+    margin-top: 1rem;
+    color: var(--error);
+}

@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   id UUID PRIMARY KEY,
   challenge_id UUID NOT NULL,
   user_id TEXT NOT NULL,
+  code TEXT NOT NULL,
+  language VARCHAR(32) NOT NULL,
   status VARCHAR(16) NOT NULL CHECK (status IN ('queued','running','accepted','wrong_answer','error')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

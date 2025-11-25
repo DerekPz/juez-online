@@ -36,6 +36,11 @@ services:
             - pgdata:/var/lib/postgresql/data
             - ./apps/api/migrations/001_create_challenges.sql:/docker-entrypoint-initdb.d/001_create_challenges.sql
             - ./apps/api/migrations/002_create_submissions.sql:/docker-entrypoint-initdb.d/002_create_submissions.sql
+            - ./apps/api/migrations/003_create_users.sql:/docker-entrypoint-initdb.d/003_create_users.sql
+            - ./apps/api/migrations/004_create_test_cases.sql:/docker-entrypoint-initdb.d/004_create_test_cases.sql
+            - ./apps/api/migrations/005_add_challenge_limits.sql:/docker-entrypoint-initdb.d/005_add_challenge_limits.sql
+            - ./apps/api/migrations/006_create_courses.sql:/docker-entrypoint-initdb.d/006_create_courses.sql
+            - ./apps/api/migrations/007_add_submission_score.sql:/docker-entrypoint-initdb.d/007_add_submission_score.sql
         networks:
             - judge_net
 

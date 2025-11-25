@@ -1,4 +1,5 @@
 export type ChallengeStatus = 'draft' | 'published' | 'archived';
+export type ChallengeDifficulty = 'easy' | 'medium' | 'hard';
 
 export class Challenge {
   private constructor(
@@ -6,30 +7,49 @@ export class Challenge {
     public title: string,
     public description: string,
     public status: ChallengeStatus,
+    public timeLimit: number,
+    public memoryLimit: number,
+    public difficulty: ChallengeDifficulty,
+    public tags: string[],
     public readonly createdAt: Date,
     public updatedAt: Date,
-  ) {}
+  ) { }
 
-static fromPersistence(row: {
-  id: string;
-  title: string;
-  description: string;
-  status: ChallengeStatus;
-  created_at: Date | string;
-  updated_at: Date | string;
-}) {
-  return new Challenge(
-    row.id,
-    row.title,
-    row.description,
-    row.status,
-    new Date(row.created_at),
-    new Date(row.updated_at),
-  );
-}
+  static fromPersistence(row: {
+    id: string;
+    title: string;
+    description: string;
+    status: ChallengeStatus;
+    time_limit?: number;
+    memory_limit?: number;
+    difficulty?: ChallengeDifficulty;
+    tags?: string[];
+    created_at: Date | string;
+    updated_at: Date | string;
+  }) {
+    return new Challenge(
+      row.id,
+      row.title,
+      row.description,
+      row.status,
+      row.time_limit || 1500,
+      row.memory_limit || 256,
+      row.difficulty || 'medium',
+      row.tags || [],
+      new Date(row.created_at),
+      new Date(row.updated_at),
+    );
+  }
 
-
-  static create(params: { id: string; title: string; description: string }) {
+  static create(params: {
+    id: string;
+    title: string;
+    description: string;
+    timeLimit?: number;
+    memoryLimit?: number;
+    difficulty?: ChallengeDifficulty;
+    tags?: string[];
+  }) {
     if (!params.title || params.title.trim().length < 3) {
       throw new Error('Title must be at least 3 characters');
     }
@@ -39,6 +59,10 @@ static fromPersistence(row: {
       params.title.trim(),
       params.description?.trim() ?? '',
       'draft',
+      params.timeLimit || 1500,
+      params.memoryLimit || 256,
+      params.difficulty || 'medium',
+      params.tags || [],
       now,
       now,
     );
@@ -65,5 +89,26 @@ static fromPersistence(row: {
     this.description = (newDesc ?? '').trim();
     this.updatedAt = new Date();
   }
-}
 
+  updateLimits(timeLimit: number, memoryLimit: number) {
+    if (timeLimit < 100 || timeLimit > 10000) {
+      throw new Error('Time limit must be between 100ms and 10000ms');
+    }
+    if (memoryLimit < 64 || memoryLimit > 1024) {
+      throw new Error('Memory limit must be between 64MB and 1024MB');
+    }
+    this.timeLimit = timeLimit;
+    this.memoryLimit = memoryLimit;
+    this.updatedAt = new Date();
+  }
+
+  updateDifficulty(difficulty: ChallengeDifficulty) {
+    this.difficulty = difficulty;
+    this.updatedAt = new Date();
+  }
+
+  updateTags(tags: string[]) {
+    this.tags = tags.filter(t => t.trim().length > 0);
+    this.updatedAt = new Date();
+  }
+}

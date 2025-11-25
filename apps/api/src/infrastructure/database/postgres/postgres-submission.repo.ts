@@ -3,23 +3,31 @@ import { Submission } from "../../../core/Submission/entities/submission.entity"
 import { ISubmissionRepo } from "../../../core/Submission/interfaces/submission.repo";
 
 export class PostgresSubmissionRepo implements ISubmissionRepo {
-    constructor(private readonly pool: Pool) {}
+    constructor(private readonly pool: Pool) { }
 
     async save(sub: Submission): Promise<void> {
         const sql = `
-      INSERT INTO public.submissions (id, challenge_id, user_id, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO public.submissions (id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO UPDATE SET
         challenge_id = EXCLUDED.challenge_id,
         user_id      = EXCLUDED.user_id,
+        code         = EXCLUDED.code,
+        language     = EXCLUDED.language,
         status       = EXCLUDED.status,
+        score        = EXCLUDED.score,
+        time_ms_total = EXCLUDED.time_ms_total,
         updated_at   = NOW()
     `;
         const vals = [
             sub.id,
             sub.challengeId,
             sub.userId,
+            sub.code,
+            sub.language,
             sub.status,
+            sub.score,
+            sub.timeMsTotal,
             sub.createdAt,
             sub.updatedAt,
         ];
@@ -28,86 +36,74 @@ export class PostgresSubmissionRepo implements ISubmissionRepo {
 
     async findById(id: string): Promise<Submission | null> {
         const { rows } = await this.pool.query(
-            `SELECT id, challenge_id, user_id, status, created_at, updated_at
+            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at
          FROM public.submissions
         WHERE id = $1
         LIMIT 1`,
             [id],
         );
-        if (!rows.length) return null;
+        if (rows.length === 0) return null;
         return Submission.fromPersistence(rows[0]);
     }
 
-    // 👇 Nuevo: listado con filtros y paginación
-    async list(params: {
-        challengeId?: string;
-        userId?: string;
-        status?: string;
-        limit?: number;
-        offset?: number;
-    }): Promise<Submission[]> {
-        const conds: string[] = [];
-        const vals: any[] = [];
-        let i = 1;
-
-        if (params.challengeId) {
-            conds.push(`challenge_id = $${i++}`);
-            vals.push(params.challengeId);
-        }
-        if (params.userId) {
-            conds.push(`user_id = $${i++}`);
-            vals.push(params.userId);
-        }
-        if (params.status) {
-            conds.push(`status = $${i++}`);
-            vals.push(params.status);
-        }
-
-        const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-        const limit = Number.isFinite(params.limit) ? Number(params.limit) : 20;
-        const offset = Number.isFinite(params.offset)
-            ? Number(params.offset)
-            : 0;
-
-        const sql = `
-      SELECT id, challenge_id, user_id, status, created_at, updated_at
-        FROM public.submissions
-        ${where}
-       ORDER BY created_at DESC
-       LIMIT ${limit} OFFSET ${offset}
-    `;
-        const { rows } = await this.pool.query(sql, vals);
-        return rows.map(Submission.fromPersistence);
+    async list(): Promise<Submission[]> {
+        const { rows } = await this.pool.query(
+            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at
+         FROM public.submissions
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        );
+        return rows.map((r) => Submission.fromPersistence(r));
     }
 
-    // 👇 Nuevo: total para paginación
-    async count(params: {
-        challengeId?: string;
-        userId?: string;
-        status?: string;
-    }): Promise<number> {
-        const conds: string[] = [];
-        const vals: any[] = [];
-        let i = 1;
+    async getBestByChallenge(challengeId: string): Promise<any[]> {
+        const query = `
+            SELECT DISTINCT ON (s.user_id)
+                s.user_id,
+                u.username,
+                s.score,
+                s.time_ms_total,
+                s.created_at
+            FROM submissions s
+            INNER JOIN users u ON s.user_id = u.id
+            WHERE s.challenge_id = $1 AND s.status = 'accepted'
+            ORDER BY s.user_id, s.score DESC, s.time_ms_total ASC, s.created_at ASC
+        `;
+        const result = await this.pool.query(query, [challengeId]);
+        return result.rows;
+    }
 
-        if (params.challengeId) {
-            conds.push(`challenge_id = $${i++}`);
-            vals.push(params.challengeId);
-        }
-        if (params.userId) {
-            conds.push(`user_id = $${i++}`);
-            vals.push(params.userId);
-        }
-        if (params.status) {
-            conds.push(`status = $${i++}`);
-            vals.push(params.status);
-        }
+    async getBestByCourse(courseId: string): Promise<any[]> {
+        const query = `
+            SELECT 
+                s.user_id,
+                u.username,
+                SUM(best.score) as total_score,
+                COUNT(DISTINCT best.challenge_id) as challenges_solved,
+                SUM(best.time_ms_total) as total_time_ms
+            FROM (
+                SELECT DISTINCT ON (s2.user_id, s2.challenge_id)
+                    s2.user_id,
+                    s2.challenge_id,
+                    s2.score,
+                    s2.time_ms_total
+                FROM submissions s2
+                INNER JOIN course_challenges cc ON s2.challenge_id = cc.challenge_id
+                WHERE cc.course_id = $1 AND s2.status = 'accepted'
+                ORDER BY s2.user_id, s2.challenge_id, s2.score DESC, s2.time_ms_total ASC
+            ) best
+            INNER JOIN submissions s ON best.user_id = s.user_id
+            INNER JOIN users u ON s.user_id = u.id
+            INNER JOIN course_students cs ON s.user_id = cs.student_id AND cs.course_id = $1
+            GROUP BY s.user_id, u.username
+            ORDER BY total_score DESC, challenges_solved DESC, total_time_ms ASC
+        `;
+        const result = await this.pool.query(query, [courseId]);
+        return result.rows;
+    }
 
-        const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-        const { rows } = await this.pool.query(
-            `SELECT COUNT(*)::int AS n FROM public.submissions ${where}`,
-            vals,
-        );
-        return rows[0]?.n ?? 0;
+    async count(): Promise<number> {
+        const result = await this.pool.query('SELECT COUNT(*) FROM submissions');
+        return parseInt(result.rows[0].count);
     }
 }

@@ -3,7 +3,7 @@ import { ISubmissionRepo } from '../interfaces/submission.repo';
 import { ISubmissionQueue } from '../interfaces/submission.queue';
 import { IChallengeRepo } from '../../challenges/interfaces/challenge.repo';
 
-type Input = { challengeId: string; userId: string };
+type Input = { challengeId: string; userId: string; code: string; language: string };
 type Output = Submission;
 
 export class CreateSubmissionUseCase {
@@ -11,7 +11,7 @@ export class CreateSubmissionUseCase {
     private readonly repo: ISubmissionRepo,
     private readonly queue: ISubmissionQueue | undefined,
     private readonly challengeRepo: IChallengeRepo,   // 👈 añadimos lectura de challenges
-  ) {}
+  ) { }
 
   async execute(input: Input): Promise<Output> {
     if (!input.challengeId) throw new Error('challengeId is required');
@@ -26,6 +26,8 @@ export class CreateSubmissionUseCase {
     const sub = Submission.create({
       challengeId: input.challengeId,
       userId: input.userId,
+      code: input.code,
+      language: input.language,
     });
 
     await this.repo.save(sub);

@@ -1,92 +1,100 @@
 import { createPgPool } from "../infrastructure/database/postgres.provider";
 import { createRedisClient } from "../infrastructure/cache/redis.provider";
 import { PostgresSubmissionRepo } from "../infrastructure/database/postgres/postgres-submission.repo";
+import { PostgresTestCaseRepo } from "../infrastructure/database/postgres/postgres-test-case.repo";
 import { Submission } from "../core/Submission/entities/submission.entity";
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { createLogger } from "../infrastructure/logging/logger";
+import { metricsCollector } from "../infrastructure/metrics/metrics";
 
-async function runRunnerForAllTests(subId: string, challengeId: string) {
+const logger = createLogger("SubmissionWorker");
+
+async function runRunnerForAllTests(
+    subId: string,
+    challengeId: string,
+    testCaseRepo: PostgresTestCaseRepo,
+    pool: any
+) {
+    // Get test cases from database
+    const testCases = await testCaseRepo.findByChallengeId(challengeId);
+    if (testCases.length === 0) {
+        return { status: "error", message: "No test cases found for this challenge" };
+    }
+
+    // Create temporary directory for test files
+    const tempDir = path.join(os.tmpdir(), `juez-tests-${subId}`);
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Write test cases to temporary files
+    testCases.forEach((tc, index) => {
+        const inputFile = path.join(tempDir, `input${index + 1}.in`);
+        const outputFile = path.join(tempDir, `output${index + 1}.out`);
+        fs.writeFileSync(inputFile, tc.input);
+        fs.writeFileSync(outputFile, tc.expectedOutput);
+    });
+
     const submissionBase = path.resolve(__dirname, "../core/Submission", subId);
-    // Optional: absolute path on the HOST where submissions folders live.
-    // If provided, the worker will mount host paths (left side of -v) so the
-    // Docker daemon can access the files. Example: /home/azkalagon/.../apps/api/data/submissions
     const hostSubmissionsDir = process.env.HOST_SUBMISSIONS_DIR || "";
     const hostSubmissionBase = hostSubmissionsDir
         ? path.join(hostSubmissionsDir, subId)
         : submissionBase;
 
-    const challengeTests = path.resolve(
-        __dirname,
-        "../../apps/api/src/core/challenges",
-        challengeId,
-        "tests",
-    );
-    // Optional: host path for challenges tests (if different from container path)
-    const hostChallengesDir = process.env.HOST_CHALLENGES_DIR || "";
-    const hostChallengeTests = hostChallengesDir
-        ? path.join(hostChallengesDir, challengeId, "tests")
-        : challengeTests;
-
-    // Read meta.json from the container-local submission path (this path is mounted
-    // into the worker via docker-compose). If meta.json is missing, we cannot proceed.
-    if (!fs.existsSync(submissionBase)) return null;
+    // Read meta.json
+    if (!fs.existsSync(submissionBase)) {
+        cleanupTempDir(tempDir);
+        return null;
+    }
     const metaPath = path.join(submissionBase, "meta.json");
-    if (!fs.existsSync(metaPath)) return null;
+    if (!fs.existsSync(metaPath)) {
+        cleanupTempDir(tempDir);
+        return null;
+    }
     const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
     const lang = meta.language;
-    const codeRel = meta.codeFile; // like code/solution.py
+    const codeRel = meta.codeFile;
 
-    // determine image by language
+    // Determine image by language
     let image = "";
     if (lang === "python") image = "juez_runner_python:local";
     else if (lang === "node" || lang === "javascript")
         image = "juez_runner_node:local";
     else if (lang === "cpp" || lang === "c++") image = "juez_runner_cpp:local";
     else if (lang === "java") image = "juez_runner_java:local";
-    else return { status: "error", message: `unsupported language ${lang}` };
+    else {
+        cleanupTempDir(tempDir);
+        return { status: "error", message: `unsupported language ${lang}` };
+    }
 
-    // build payload that runner expects:
-    // - runner will look for code at /code/<codeFile> inside container,
-    // - and tests at /tests/
+    // Get time limit from challenge
+    const challengeResult = await pool.query(
+        'SELECT * FROM challenges WHERE id = $1',
+        [challengeId]
+    );
+    const timeLimit = challengeResult.rows[0]?.time_limit || 1500;
+
+    // Build payload
     const payload = {
         source_file: "/code/" + path.basename(codeRel),
-        time_limit_ms: meta.timeLimit || 1500,
-        // runner will find all input*.in and output*.out in /tests/
+        time_limit_ms: timeLimit,
     };
 
-    // Decide mounts. When HOST_SUBMISSIONS_DIR is set we MUST mount the host submission
-    // paths for both code and tests (left side of -v must be host paths). We will not
-    // attempt to probe host paths with fs.existsSync because those host paths are not
-    // generally visible from inside the container. We still read meta.json from the
-    // container-local submissionBase above.
+    // Mount code and test files
     const mounts: string[] = [];
-
     if (hostSubmissionsDir) {
-        // Always mount host submission code and tests when HOST_SUBMISSIONS_DIR provided.
         const hostCode = path.join(hostSubmissionBase, "code");
-        const hostTests = path.join(hostSubmissionBase, "tests");
         mounts.push("-v", `${hostCode}:/code:ro`);
-        mounts.push("-v", `${hostTests}:/tests:ro`);
     } else {
-        // Fallback: mount container-local code/tests (these are visible because ./apps/api/data is mounted)
         const mountCode = path.join(submissionBase, "code");
         mounts.push("-v", `${mountCode}:/code:ro`);
-        if (fs.existsSync(path.join(submissionBase, "tests"))) {
-            mounts.push(
-                "-v",
-                `${path.join(submissionBase, "tests")}:/tests:ro`,
-            );
-        } else if (fs.existsSync(challengeTests)) {
-            mounts.push("-v", `${challengeTests}:/tests:ro`);
-        }
     }
 
-    // If a host-level challenges dir was explicitly provided and we did not already mount host tests,
-    // add it as a best-effort fallback (only used when hostSubmissionsDir is not set).
-    if (!hostSubmissionsDir && hostChallengesDir && hostChallengeTests) {
-        mounts.push("-v", `${hostChallengeTests}:/tests:ro`);
-    }
+    // Mount temporary test directory
+    mounts.push("-v", `${tempDir}:/tests:ro`);
 
     const args = [
         "run",
@@ -108,13 +116,15 @@ async function runRunnerForAllTests(subId: string, challengeId: string) {
         maxBuffer: 50 * 1024 * 1024,
     });
 
+    // Cleanup temporary directory
+    cleanupTempDir(tempDir);
+
     if (proc.error) {
         console.error("[worker] docker run error", proc.error);
         return { status: "error", message: String(proc.error) };
     }
     if (proc.status !== 0) {
         console.error("[worker] runner exit code", proc.status, proc.stderr);
-        // try parse stdout anyway
         try {
             return JSON.parse(proc.stdout);
         } catch (e) {
@@ -122,7 +132,16 @@ async function runRunnerForAllTests(subId: string, challengeId: string) {
         }
     }
     try {
-        return JSON.parse(proc.stdout);
+        const result = JSON.parse(proc.stdout);
+        // Calculate score based on passed test cases
+        if (result.cases && Array.isArray(result.cases)) {
+            const totalPoints = testCases.reduce((sum, tc) => sum + tc.points, 0);
+            const earnedPoints = result.cases.reduce((sum: number, c: any, idx: number) => {
+                return sum + (c.status === "OK" ? testCases[idx].points : 0);
+            }, 0);
+            result.score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+        }
+        return result;
     } catch (e) {
         return {
             status: "error",
@@ -132,15 +151,26 @@ async function runRunnerForAllTests(subId: string, challengeId: string) {
     }
 }
 
+function cleanupTempDir(dir: string) {
+    try {
+        if (fs.existsSync(dir)) {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    } catch (err) {
+        console.error("[worker] cleanup error:", err);
+    }
+}
+
 async function main() {
     const pool = createPgPool();
     const redis = createRedisClient();
-    const repo = new PostgresSubmissionRepo(pool);
+    const submissionRepo = new PostgresSubmissionRepo(pool);
+    const testCaseRepo = new PostgresTestCaseRepo(pool);
 
-    console.log("[worker] started. Waiting for jobs...");
+    logger.info("Worker started, waiting for jobs");
 
     const shutdown = async () => {
-        console.log("\n[worker] shutting down...");
+        logger.info("Worker shutting down");
         await redis.quit();
         await pool.end();
         process.exit(0);
@@ -153,61 +183,87 @@ async function main() {
             const res = await redis.brpop("queue:submissions", 0);
             if (!res) continue;
             const subId = res[1];
-            console.log("[worker] picked job", subId);
 
-            const current = await repo.findById(subId);
+            logger.info("Picked submission job", { submissionId: subId });
+            metricsCollector.incrementSubmissionsTotal();
+
+            const current = await submissionRepo.findById(subId);
             if (!current) {
-                console.warn("[worker] submission not found:", subId);
+                logger.warn("Submission not found", { submissionId: subId });
                 continue;
             }
 
             current.start();
-            await repo.save(current);
+            await submissionRepo.save(current);
 
-            // Real execution using runner images
+            const startTime = Date.now();
+
+            // Real execution using runner images with DB test cases
             const runnerResult = await runRunnerForAllTests(
                 subId,
                 current.challengeId,
+                testCaseRepo,
+                pool
             );
+
+            const duration = Date.now() - startTime;
+
             if (!runnerResult) {
-                // fallback: mark as error
                 current.fail();
-                await repo.save(current);
-                console.log("[worker] no runner result for", subId);
+                await submissionRepo.save(current);
+                metricsCollector.incrementSubmissionsFailed();
+                logger.warn("No runner result", { submissionId: subId, duration });
                 continue;
             }
 
-            // runnerResult expected format:
-            // { status: 'PARTIAL'|'ACCEPTED'|'WRONG_ANSWER'|..., timeMsTotal: 123, cases: [{caseId, status, timeMs, stderr?}, ...] }
-            if (runnerResult.status === "ACCEPTED") current.accept();
-            else if (
+            // Update submission based on result
+            if (runnerResult.status === "ACCEPTED") {
+                current.accept();
+                metricsCollector.incrementSubmissionsAccepted();
+            } else if (
                 runnerResult.status === "PARTIAL" ||
                 runnerResult.status === "WRONG_ANSWER"
-            )
+            ) {
                 current.reject();
-            else if (runnerResult.status === "TIME_LIMIT_EXCEEDED")
+                metricsCollector.incrementSubmissionsRejected();
+            } else if (runnerResult.status === "TIME_LIMIT_EXCEEDED") {
                 current.fail();
-            else if (runnerResult.status === "ERROR") current.fail();
-            else current.fail();
+                metricsCollector.incrementSubmissionsFailed();
+            } else if (runnerResult.status === "ERROR") {
+                current.fail();
+                metricsCollector.incrementSubmissionsFailed();
+            } else {
+                current.fail();
+                metricsCollector.incrementSubmissionsFailed();
+            }
 
-            await repo.save(current);
+            // Update score and time
+            if (runnerResult.score !== undefined) {
+                current.updateScore(
+                    runnerResult.score,
+                    runnerResult.timeMsTotal || 0
+                );
+                metricsCollector.recordExecutionTime(runnerResult.timeMsTotal || 0);
+            }
 
-            // optional: persist detailed result in a results table or storage (not implemented here)
-            console.log(
-                "[worker] done",
-                subId,
-                "->",
-                current.status,
-                runnerResult,
-            );
+            await submissionRepo.save(current);
+
+            logger.info("Submission processed", {
+                submissionId: subId,
+                challengeId: current.challengeId,
+                userId: current.userId,
+                status: current.status,
+                score: runnerResult.score || 0,
+                duration,
+            });
         } catch (err: any) {
-            console.error("[worker] error loop:", err.message || err);
+            logger.error("Worker loop error", err, { error: err.message });
             await new Promise((r) => setTimeout(r, 500));
         }
     }
 }
 
 main().catch((err) => {
-    console.error("[worker] fatal:", err);
+    logger.error("Worker fatal error", err);
     process.exit(1);
 });
