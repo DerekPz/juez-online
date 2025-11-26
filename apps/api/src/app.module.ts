@@ -12,6 +12,7 @@ import { CacheModule } from './infrastructure/cache/cache.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { ExamsModule } from './modules/exams/exams.module';
 
 
 @Module({
@@ -23,7 +24,9 @@ import { MetricsModule } from './modules/metrics/metrics.module';
     SubmissionsModule,
     CoursesModule,
     LeaderboardModule,
+    LeaderboardModule,
     MetricsModule,
+    ExamsModule,
   ],
   controllers: [HealthController, DbController, CacheController],
   providers: [

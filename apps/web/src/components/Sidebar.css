@@ -1,0 +1,112 @@
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background: var(--surface-color);
+    border-right: var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 100;
+    box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: var(--glass-border);
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-color);
+    letter-spacing: 1px;
+}
+
+.logo-link {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.logo-link:hover .logo {
+    opacity: 0.8;
+}
+
+.neon-text {
+    color: var(--primary-color);
+    text-shadow: 0 0 5px var(--primary-color);
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 20px 0;
+    overflow-y: auto;
+}
+
+.sidebar-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-nav li {
+    margin-bottom: 5px;
+}
+
+.sidebar-nav a {
+    display: block;
+    padding: 12px 20px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+    background: rgba(0, 240, 255, 0.05);
+    color: var(--primary-color);
+    border-left-color: var(--primary-color);
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.sidebar-footer {
+    padding: 20px;
+    border-top: var(--glass-border);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.username {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.role {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+}
+
+.btn-logout {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--error-color);
+    color: var(--error-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+}
+
+.btn-logout:hover {
+    background: var(--error-color);
+    color: white;
+    box-shadow: 0 0 10px var(--error-color);
+}

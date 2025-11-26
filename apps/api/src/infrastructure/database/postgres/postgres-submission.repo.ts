@@ -7,8 +7,8 @@ export class PostgresSubmissionRepo implements ISubmissionRepo {
 
     async save(sub: Submission): Promise<void> {
         const sql = `
-      INSERT INTO public.submissions (id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO public.submissions (id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at, exam_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (id) DO UPDATE SET
         challenge_id = EXCLUDED.challenge_id,
         user_id      = EXCLUDED.user_id,
@@ -30,13 +30,14 @@ export class PostgresSubmissionRepo implements ISubmissionRepo {
             sub.timeMsTotal,
             sub.createdAt,
             sub.updatedAt,
+            sub.examId,
         ];
         await this.pool.query(sql, vals);
     }
 
     async findById(id: string): Promise<Submission | null> {
         const { rows } = await this.pool.query(
-            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at
+            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at, exam_id
          FROM public.submissions
         WHERE id = $1
         LIMIT 1`,
@@ -48,7 +49,7 @@ export class PostgresSubmissionRepo implements ISubmissionRepo {
 
     async list(): Promise<Submission[]> {
         const { rows } = await this.pool.query(
-            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at
+            `SELECT id, challenge_id, user_id, code, language, status, score, time_ms_total, created_at, updated_at, exam_id
          FROM public.submissions
          ORDER BY created_at DESC
          LIMIT 100`,

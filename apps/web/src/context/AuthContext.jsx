@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import client from '../api/client';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -14,7 +14,8 @@ export const AuthProvider = ({ children }) => {
             const token = localStorage.getItem('token');
             if (token) {
                 try {
-                    setUser({ token, username: 'User' });
+                    const { data } = await client.get('/auth/me');
+                    setUser({ token, username: data.username, role: data.role });
                 } catch (error) {
                     localStorage.removeItem('token');
                 }
@@ -27,7 +28,10 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         const { data } = await client.post('/auth/login', { username, password });
         localStorage.setItem('token', data.accessToken);
-        setUser({ token: data.accessToken, username });
+
+        // Fetch user details including role
+        const userResponse = await client.get('/auth/me');
+        setUser({ token: data.accessToken, username: userResponse.data.username, role: userResponse.data.role });
     };
 
     const register = async (username, password, role) => {

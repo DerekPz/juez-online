@@ -19,9 +19,10 @@ export class Submission {
     public timeMsTotal: number,
     public readonly createdAt: Date,
     public updatedAt: Date,
+    public readonly examId?: string,
   ) { }
 
-  static create(props: { challengeId: string; userId: string; code: string; language: string }) {
+  static create(props: { challengeId: string; userId: string; code: string; language: string; examId?: string }) {
     const now = new Date();
     return new Submission(
       randomUUID(),
@@ -34,6 +35,7 @@ export class Submission {
       0,
       now,
       now,
+      props.examId,
     );
   }
 
@@ -75,6 +77,7 @@ export class Submission {
       row.time_ms_total || 0,
       new Date(row.created_at),
       new Date(row.updated_at),
+      row.exam_id,
     );
   }
 }

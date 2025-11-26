@@ -11,7 +11,7 @@ export class SubmissionsService {
     @Inject('SubmissionRepo') private readonly repo: ISubmissionRepo, // 👈 inyectamos el repo ya registrado
   ) { }
 
-  async create(input: { challengeId: string; userId: string; code: string; language: string }) {
+  async create(input: { challengeId: string; userId: string; code: string; language: string; examId?: string }) {
     try {
       return await this.createUC.execute(input);
     } catch (e: any) {

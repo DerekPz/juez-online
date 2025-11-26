@@ -3,7 +3,7 @@ import { ISubmissionRepo } from '../interfaces/submission.repo';
 import { ISubmissionQueue } from '../interfaces/submission.queue';
 import { IChallengeRepo } from '../../challenges/interfaces/challenge.repo';
 
-type Input = { challengeId: string; userId: string; code: string; language: string };
+type Input = { challengeId: string; userId: string; code: string; language: string; examId?: string };
 type Output = Submission;
 
 export class CreateSubmissionUseCase {
@@ -28,6 +28,7 @@ export class CreateSubmissionUseCase {
       userId: input.userId,
       code: input.code,
       language: input.language,
+      examId: input.examId,
     });
 
     await this.repo.save(sub);

@@ -1,0 +1,519 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import client from '../api/client';
+import './CreateChallenge.css';
+
+const CreateChallenge = () => {
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState('basic');
+    const [showPreview, setShowPreview] = useState(false);
+
+    const [formData, setFormData] = useState({
+        title: '',
+        description: '',
+        difficulty: 'medium',
+        timeLimit: 1000,
+        memoryLimit: 256,
+        tags: [],
+        inputFormat: '',
+        outputFormat: '',
+        constraints: '',
+        status: 'draft',
+        assignedCourses: []
+    });
+
+    const [publicTestCases, setPublicTestCases] = useState([]);
+    const [hiddenTestCases, setHiddenTestCases] = useState([]);
+    const [newTag, setNewTag] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const predefinedTags = [
+        'arrays', 'strings', 'math', 'hashing', 'greedy', 'dynamic-programming',
+        'trees', 'graphs', 'sorting', 'searching', 'recursion', 'backtracking',
+        'two-pointers', 'sliding-window', 'stack', 'queue', 'linked-list'
+    ];
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const addPublicTestCase = () => {
+        setPublicTestCases([...publicTestCases, { input: '', output: '', name: `Example ${publicTestCases.length + 1}` }]);
+    };
+
+    const addHiddenTestCase = () => {
+        setHiddenTestCases([...hiddenTestCases, { input: '', output: '', name: `Hidden ${hiddenTestCases.length + 1}` }]);
+    };
+
+    const updateTestCase = (index, field, value, isPublic) => {
+        const cases = isPublic ? [...publicTestCases] : [...hiddenTestCases];
+        cases[index][field] = value;
+        isPublic ? setPublicTestCases(cases) : setHiddenTestCases(cases);
+    };
+
+    const removeTestCase = (index, isPublic) => {
+        const cases = isPublic ? [...publicTestCases] : [...hiddenTestCases];
+        cases.splice(index, 1);
+        isPublic ? setPublicTestCases(cases) : setHiddenTestCases(cases);
+    };
+
+    const addTag = (tag) => {
+        if (tag && !formData.tags.includes(tag)) {
+            setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+            setNewTag('');
+        }
+    };
+
+    const removeTag = (tag) => {
+        setFormData(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
+    };
+
+    const validateForm = () => {
+        if (!formData.title || !formData.description) {
+            setError('Title and description are required');
+            return false;
+        }
+        if (hiddenTestCases.length < 3) {
+            setError('At least 3 hidden test cases are required');
+            return false;
+        }
+        // Validate all test cases have both input and output
+        const allCases = [...publicTestCases, ...hiddenTestCases];
+        for (let tc of allCases) {
+            if (!tc.input.trim() || !tc.output.trim()) {
+                setError('All test cases must have both input and output');
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const handleSubmit = async (status) => {
+        setError('');
+        if (status === 'published' && !validateForm()) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const payload = {
+                ...formData,
+                status,
+                publicTestCases,
+                hiddenTestCases
+            };
+            await client.post('/challenges', payload);
+            navigate('/challenges');
+        } catch (err) {
+            setError('Failed to create challenge. Please try again.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="create-challenge-page">
+            <div className="page-header">
+                <h1>Create New Challenge</h1>
+                <p className="subtitle">Design a comprehensive coding challenge</p>
+            </div>
+
+            {error && <div className="error-message">{error}</div>}
+
+            {!showPreview ? (
+                <>
+                    <div className="tabs">
+                        <button className={activeTab === 'basic' ? 'tab active' : 'tab'} onClick={() => setActiveTab('basic')}>
+                            📝 Basic Info
+                        </button>
+                        <button className={activeTab === 'details' ? 'tab active' : 'tab'} onClick={() => setActiveTab('details')}>
+                            📋 Details & Format
+                        </button>
+                        <button className={activeTab === 'testcases' ? 'tab active' : 'tab'} onClick={() => setActiveTab('testcases')}>
+                            🧪 Test Cases
+                        </button>
+                        <button className={activeTab === 'settings' ? 'tab active' : 'tab'} onClick={() => setActiveTab('settings')}>
+                            ⚙️ Settings
+                        </button>
+                    </div>
+
+                    <div className="tab-content">
+                        {activeTab === 'basic' && (
+                            <div className="form-section">
+                                <h2>Basic Information</h2>
+
+                                <div className="form-group">
+                                    <label htmlFor="title">Challenge Title *</label>
+                                    <input
+                                        type="text"
+                                        id="title"
+                                        name="title"
+                                        value={formData.title}
+                                        onChange={handleChange}
+                                        placeholder="e.g., Two Sum Problem"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="description">Problem Statement *</label>
+                                    <textarea
+                                        id="description"
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        placeholder="Describe the problem clearly..."
+                                        rows="12"
+                                        required
+                                    />
+                                    <small>Supports Markdown formatting</small>
+                                </div>
+
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label htmlFor="difficulty">Difficulty *</label>
+                                        <select id="difficulty" name="difficulty" value={formData.difficulty} onChange={handleChange}>
+                                            <option value="easy">Easy</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="hard">Hard</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label htmlFor="timeLimit">Time Limit (ms) *</label>
+                                        <input type="number" id="timeLimit" name="timeLimit" value={formData.timeLimit} onChange={handleChange} min="100" max="10000" />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label htmlFor="memoryLimit">Memory Limit (MB) *</label>
+                                        <input type="number" id="memoryLimit" name="memoryLimit" value={formData.memoryLimit} onChange={handleChange} min="64" max="512" />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Tags</label>
+                                    <div className="tags-container">
+                                        {formData.tags.map(tag => (
+                                            <span key={tag} className="tag">
+                                                {tag}
+                                                <button type="button" onClick={() => removeTag(tag)}>×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="tag-input-group">
+                                        <input
+                                            type="text"
+                                            value={newTag}
+                                            onChange={(e) => setNewTag(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag(newTag))}
+                                            placeholder="Type and press Enter"
+                                        />
+                                        <button type="button" onClick={() => addTag(newTag)} className="btn-add-tag">Add</button>
+                                    </div>
+                                    <div className="predefined-tags">
+                                        {predefinedTags.filter(t => !formData.tags.includes(t)).map(tag => (
+                                            <button key={tag} type="button" onClick={() => addTag(tag)} className="predefined-tag">
+                                                + {tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'details' && (
+                            <div className="form-section">
+                                <h2>Input/Output Format & Constraints</h2>
+
+                                <div className="form-group">
+                                    <label htmlFor="inputFormat">Input Format</label>
+                                    <textarea
+                                        id="inputFormat"
+                                        name="inputFormat"
+                                        value={formData.inputFormat}
+                                        onChange={handleChange}
+                                        placeholder="Describe the input format..."
+                                        rows="4"
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="outputFormat">Output Format</label>
+                                    <textarea
+                                        id="outputFormat"
+                                        name="outputFormat"
+                                        value={formData.outputFormat}
+                                        onChange={handleChange}
+                                        placeholder="Describe the expected output format..."
+                                        rows="4"
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="constraints">Constraints</label>
+                                    <textarea
+                                        id="constraints"
+                                        name="constraints"
+                                        value={formData.constraints}
+                                        onChange={handleChange}
+                                        placeholder="e.g., 1 ≤ n ≤ 10^5, -10^9 ≤ arr[i] ≤ 10^9"
+                                        rows="4"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'testcases' && (
+                            <div className="form-section">
+                                <h2>Test Cases</h2>
+
+                                <div className="testcases-section">
+                                    <div className="testcase-header">
+                                        <h3>📖 Public Test Cases</h3>
+                                        <p>Students can see these examples</p>
+                                        <button type="button" onClick={addPublicTestCase} className="btn-add">+ Add Public Case</button>
+                                    </div>
+
+                                    {publicTestCases.map((tc, idx) => (
+                                        <div key={idx} className="testcase-item">
+                                            <div className="testcase-title">
+                                                <input
+                                                    type="text"
+                                                    value={tc.name}
+                                                    onChange={(e) => updateTestCase(idx, 'name', e.target.value, true)}
+                                                    placeholder="Case name"
+                                                />
+                                                <button type="button" onClick={() => removeTestCase(idx, true)} className="btn-remove">🗑️</button>
+                                            </div>
+                                            <div className="testcase-io">
+                                                <div className="io-group">
+                                                    <label>Input</label>
+                                                    <textarea
+                                                        value={tc.input}
+                                                        onChange={(e) => updateTestCase(idx, 'input', e.target.value, true)}
+                                                        placeholder="Input data..."
+                                                        rows="3"
+                                                    />
+                                                </div>
+                                                <div className="io-group">
+                                                    <label>Expected Output</label>
+                                                    <textarea
+                                                        value={tc.output}
+                                                        onChange={(e) => updateTestCase(idx, 'output', e.target.value, true)}
+                                                        placeholder="Expected output..."
+                                                        rows="3"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="testcases-section">
+                                    <div className="testcase-header">
+                                        <h3>🔒 Hidden Test Cases</h3>
+                                        <p>Used for evaluation (min. 3 required)</p>
+                                        <button type="button" onClick={addHiddenTestCase} className="btn-add">+ Add Hidden Case</button>
+                                    </div>
+
+                                    {hiddenTestCases.map((tc, idx) => (
+                                        <div key={idx} className="testcase-item hidden">
+                                            <div className="testcase-title">
+                                                <input
+                                                    type="text"
+                                                    value={tc.name}
+                                                    onChange={(e) => updateTestCase(idx, 'name', e.target.value, false)}
+                                                    placeholder="Case name"
+                                                />
+                                                <button type="button" onClick={() => removeTestCase(idx, false)} className="btn-remove">🗑️</button>
+                                            </div>
+                                            <div className="testcase-io">
+                                                <div className="io-group">
+                                                    <label>Input</label>
+                                                    <textarea
+                                                        value={tc.input}
+                                                        onChange={(e) => updateTestCase(idx, 'input', e.target.value, false)}
+                                                        placeholder="Input data..."
+                                                        rows="3"
+                                                    />
+                                                </div>
+                                                <div className="io-group">
+                                                    <label>Expected Output</label>
+                                                    <textarea
+                                                        value={tc.output}
+                                                        onChange={(e) => updateTestCase(idx, 'output', e.target.value, false)}
+                                                        placeholder="Expected output..."
+                                                        rows="3"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {hiddenTestCases.length < 3 && (
+                                        <div className="warning-box">
+                                            ⚠️ You need at least {3 - hiddenTestCases.length} more hidden test case(s) to publish this challenge.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <div className="form-section">
+                                <h2>Publication & Course Assignment</h2>
+
+                                <div className="form-group">
+                                    <label>Status</label>
+                                    <div className="status-options">
+                                        <label className="radio-option">
+                                            <input
+                                                type="radio"
+                                                name="status"
+                                                value="draft"
+                                                checked={formData.status === 'draft'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>📝 Draft</span>
+                                            <small>Save for later, not visible to students</small>
+                                        </label>
+                                        <label className="radio-option">
+                                            <input
+                                                type="radio"
+                                                name="status"
+                                                value="published"
+                                                checked={formData.status === 'published'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>✅ Published</span>
+                                            <small>Visible to assigned courses</small>
+                                        </label>
+                                        <label className="radio-option">
+                                            <input
+                                                type="radio"
+                                                name="status"
+                                                value="archived"
+                                                checked={formData.status === 'archived'}
+                                                onChange={handleChange}
+                                            />
+                                            <span>📦 Archived</span>
+                                            <small>Hidden but preserved</small>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="info-box">
+                                    <h3>📚 Course Assignment</h3>
+                                    <p>Course assignment will be available after creating the challenge.</p>
+                                    <p>You'll be able to assign this challenge to specific courses from the challenge details page.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="form-actions">
+                        <button type="button" onClick={() => navigate('/challenges')} className="btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="button" onClick={() => setShowPreview(true)} className="btn-preview">
+                            👁️ Preview
+                        </button>
+                        <button type="button" onClick={() => handleSubmit('draft')} disabled={loading} className="btn-draft">
+                            {loading ? 'Saving...' : '💾 Save as Draft'}
+                        </button>
+                        <button type="button" onClick={() => handleSubmit('published')} disabled={loading} className="btn-publish">
+                            {loading ? 'Publishing...' : '🚀 Publish Challenge'}
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="preview-container">
+                    <div className="preview-header">
+                        <h2>Preview</h2>
+                        <button onClick={() => setShowPreview(false)} className="btn-secondary">← Back to Edit</button>
+                    </div>
+
+                    <div className="challenge-preview">
+                        <div className="preview-title">
+                            <h1>{formData.title || 'Untitled Challenge'}</h1>
+                            <span className={`difficulty-badge ${formData.difficulty}`}>{formData.difficulty}</span>
+                        </div>
+
+                        {formData.tags.length > 0 && (
+                            <div className="preview-tags">
+                                {formData.tags.map(tag => <span key={tag} className="tag">{tag}</span>)}
+                            </div>
+                        )}
+
+                        <div className="preview-section">
+                            <h3>Problem Statement</h3>
+                            <div className="preview-content">{formData.description || 'No description provided'}</div>
+                        </div>
+
+                        {formData.inputFormat && (
+                            <div className="preview-section">
+                                <h3>Input Format</h3>
+                                <div className="preview-content">{formData.inputFormat}</div>
+                            </div>
+                        )}
+
+                        {formData.outputFormat && (
+                            <div className="preview-section">
+                                <h3>Output Format</h3>
+                                <div className="preview-content">{formData.outputFormat}</div>
+                            </div>
+                        )}
+
+                        {formData.constraints && (
+                            <div className="preview-section">
+                                <h3>Constraints</h3>
+                                <div className="preview-content">{formData.constraints}</div>
+                            </div>
+                        )}
+
+                        {publicTestCases.length > 0 && (
+                            <div className="preview-section">
+                                <h3>Examples</h3>
+                                {publicTestCases.map((tc, idx) => (
+                                    <div key={idx} className="example-case">
+                                        <h4>{tc.name}</h4>
+                                        <div className="example-io">
+                                            <div>
+                                                <strong>Input:</strong>
+                                                <pre>{tc.input}</pre>
+                                            </div>
+                                            <div>
+                                                <strong>Output:</strong>
+                                                <pre>{tc.output}</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="preview-meta">
+                            <div>⏱️ Time Limit: {formData.timeLimit}ms</div>
+                            <div>💾 Memory Limit: {formData.memoryLimit}MB</div>
+                            <div>🔒 Hidden Test Cases: {hiddenTestCases.length}</div>
+                        </div>
+                    </div>
+
+                    <div className="preview-actions">
+                        <button onClick={() => setShowPreview(false)} className="btn-secondary">
+                            ✏️ Edit Challenge
+                        </button>
+                        <button onClick={() => handleSubmit(formData.status)} disabled={loading} className="btn-publish">
+                            {loading ? 'Publishing...' : '✅ Confirm & Publish'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default CreateChallenge;

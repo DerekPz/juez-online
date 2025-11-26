@@ -1,37 +1,38 @@
-import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import './Home.css';
 
 const Home = () => {
-    const { user } = useAuth();
-
     return (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-            <h1>Welcome to Juez Online</h1>
-            <p>Master your coding skills with our challenges</p>
+        <div className="home-container">
+            <div className="hero-section">
+                <h1 className="hero-title">
+                    Master Algorithms <br />
+                    <span className="neon-text">Level Up Your Code</span>
+                </h1>
+                <p className="hero-subtitle">
+                    The ultimate platform for competitive programming and algorithmic challenges.
+                    Compete, learn, and dominate the leaderboard.
+                </p>
+                <div className="hero-actions">
+                    <Link to="/register" className="btn btn-primary glow-effect">Get Started</Link>
+                    <Link to="/login" className="btn btn-secondary">Login</Link>
+                </div>
+            </div>
 
-            {user ? (
-                <div style={{ marginTop: '2rem' }}>
-                    <p style={{ color: 'var(--accent-primary)', fontSize: '1.2rem' }}>
-                        ✓ You are logged in!
-                    </p>
-                    <p>Username: <strong>{user.username || 'User'}</strong></p>
-                    <Link to="/challenges" className="btn-primary" style={{ marginTop: '1rem', display: 'inline-block', padding: '0.75rem 1.5rem', textDecoration: 'none' }}>
-                        Start Solving Challenges
-                    </Link>
+            <div className="features-grid">
+                <div className="feature-card">
+                    <h3>🚀 Multi-Language Support</h3>
+                    <p>Code in Python, Java, C++, or Node.js. Our isolated runners handle it all.</p>
                 </div>
-            ) : (
-                <div style={{ marginTop: '2rem' }}>
-                    <p>Please login or register to start solving challenges</p>
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
-                        <Link to="/login" className="btn-primary" style={{ padding: '0.75rem 1.5rem', textDecoration: 'none' }}>
-                            Login
-                        </Link>
-                        <Link to="/register" className="btn-primary" style={{ padding: '0.75rem 1.5rem', textDecoration: 'none' }}>
-                            Register
-                        </Link>
-                    </div>
+                <div className="feature-card">
+                    <h3>⚡ Real-time Evaluation</h3>
+                    <p>Instant feedback on your submissions. Pass the test cases and climb the ranks.</p>
                 </div>
-            )}
+                <div className="feature-card">
+                    <h3>🏆 Global Leaderboard</h3>
+                    <p>Compete with students worldwide. Prove you are the best algorithmist.</p>
+                </div>
+            </div>
         </div>
     );
 };

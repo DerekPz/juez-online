@@ -17,6 +17,7 @@ export class SubmissionsController {
       userId: String(user?.sub),
       code: dto.code,
       language: dto.language,
+      examId: dto.examId,
     });
     return { id: sub.id, status: sub.status, createdAt: sub.createdAt };
   }
