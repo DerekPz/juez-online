@@ -5,7 +5,6 @@ import './Auth.css';
 
 const Register = () => {
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('');
     const { register } = useContext(AuthContext);
@@ -15,7 +14,7 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await register(username, password, role.toLowerCase());
+            await register(username, password, role);
             navigate('/dashboard');
         } catch (err) {
             setError('Registration failed. Try again.');
@@ -42,16 +41,6 @@ const Register = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="neo@matrix.com"
-                            required
-                        />
-                    </div>
-                    <div className="form-group">
                         <label>Password</label>
                         <input
                             type="password"
@@ -70,8 +59,8 @@ const Register = () => {
                             required
                         >
                             <option value="">Select your role</option>
-                            <option value="STUDENT">Student</option>
-                            <option value="PROFESSOR">Professor</option>
+                            <option value="student">Student</option>
+                            <option value="professor">Professor</option>
                         </select>
                     </div>
                     <button type="submit" className="btn-auth">Register</button>
