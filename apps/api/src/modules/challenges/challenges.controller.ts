@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 
 @Controller('challenges')
 export class ChallengesController {
-  constructor(private readonly svc: ChallengesService) {}
+  constructor(private readonly svc: ChallengesService) { }
 
   @Post()
   async create(@Body() dto: CreateChallengeDto) {
@@ -17,17 +17,31 @@ export class ChallengesController {
   @Get()
   async list() {
     const items = await this.svc.list();
-    return items.map(c => ({ id: c.id, title: c.title, status: c.status, createdAt: c.createdAt }));
+    return items.map(c => ({
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      difficulty: c.difficulty,
+      status: c.status,
+      createdAt: c.createdAt
+    }));
   }
 
   @Get(':id')
   async getById(@Param('id') id: string) {
     const c = await this.svc.get(id);
     if (!c) throw new NotFoundException('Challenge not found');
-    return { id: c.id, title: c.title, description: c.description, status: c.status, createdAt: c.createdAt };
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      difficulty: c.difficulty,
+      status: c.status,
+      createdAt: c.createdAt
+    };
   }
 
-  @Post(':id/publish')                 
+  @Post(':id/publish')
   async publish(@Param('id') id: string) {
     try {
       const c = await this.svc.publish(id);
@@ -37,7 +51,7 @@ export class ChallengesController {
     }
   }
 
-  @Post(':id/archive')                 
+  @Post(':id/archive')
   async archive(@Param('id') id: string) {
     try {
       const c = await this.svc.archive(id);
