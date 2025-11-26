@@ -1,11 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
-import { IExamRepo } from '../../../../core/exams/interfaces/exam.repo';
-import { Exam } from '../../../../core/exams/entities/exam.entity';
+import { IExamRepo } from '../../../core/exams/interfaces/exam.repo';
+import { Exam } from '../../../core/exams/entities/exam.entity';
 
 @Injectable()
 export class PostgresExamRepo implements IExamRepo {
-    constructor(@Inject('DATABASE_POOL') private readonly pool: Pool) { }
+    constructor(@Inject('PG_POOL') private readonly pool: Pool) { }
 
     async save(exam: Exam): Promise<void> {
         const query = `
