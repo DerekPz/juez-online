@@ -11,15 +11,20 @@ export class SubmissionsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() dto: CreateSubmissionDto, @CurrentUser() user: any) {
-    if (!dto.challengeId) throw new BadRequestException('challengeId is required');
-    const sub = await this.svc.create({
-      challengeId: dto.challengeId,
-      userId: String(user?.sub),
-      code: dto.code,
-      language: dto.language,
-      examId: dto.examId,
-    });
-    return { id: sub.id, status: sub.status, createdAt: sub.createdAt };
+    try {
+      if (!dto.challengeId) throw new BadRequestException('challengeId is required');
+      const sub = await this.svc.create({
+        challengeId: dto.challengeId,
+        userId: String(user?.sub),
+        code: dto.code,
+        language: dto.language,
+        examId: dto.examId,
+      });
+      return { id: sub.id, status: sub.status, createdAt: sub.createdAt };
+    } catch (error) {
+      console.error('Error creating submission:', error);
+      throw error;
+    }
   }
 
   @Get(':id')
@@ -46,12 +51,17 @@ export class SubmissionsController {
     @Query('offset') offset = '0',
     @CurrentUser() user: any,
   ) {
-    return this.svc.list({
-      challengeId: challengeId || undefined,
-      status: status || undefined,
-      userId: String(user?.sub), // “mis envíos”
-      limit: Number(limit),
-      offset: Number(offset),
-    });
+    try {
+      return await this.svc.list({
+        challengeId: challengeId || undefined,
+        status: status || undefined,
+        userId: String(user?.sub), // “mis envíos”
+        limit: Number(limit),
+        offset: Number(offset),
+      });
+    } catch (error) {
+      console.error('Error listing submissions:', error);
+      throw error;
+    }
   }
 }

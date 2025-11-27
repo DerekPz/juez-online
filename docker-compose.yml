@@ -96,7 +96,7 @@ services:
             - POSTGRES_DB=juez_db
             - REDIS_HOST=redis
             - REDIS_PORT=6379
-            - HOST_SUBMISSIONS_DIR=/home/azkalagon/2025_2_Proyects/juez-online/apps/api/src/core/Submission
+            - HOST_SUBMISSIONS_DIR=C:\Users\User\Documents\BK-PF\juez-online\apps\api\src\core\Submission
         networks:
             - judge_net
 

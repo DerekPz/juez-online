@@ -20,12 +20,35 @@ async function runRunnerForAllTests(
 ) {
     // Get test cases from database
     const testCases = await testCaseRepo.findByChallengeId(challengeId);
+    console.log(`[worker] Found ${testCases.length} test cases for challenge ${challengeId}`);
     if (testCases.length === 0) {
         return { status: "error", message: "No test cases found for this challenge" };
     }
 
-    // Create temporary directory for test files
-    const tempDir = path.join(os.tmpdir(), `juez-tests-${subId}`);
+    const hostSubmissionsDir = process.env.HOST_SUBMISSIONS_DIR || "";
+    console.log(`[worker] HOST_SUBMISSIONS_DIR: ${hostSubmissionsDir}`);
+
+    // Determine paths for test cases
+    // We must use a directory that is shared between the worker container and the host
+    // because we are using the host's docker socket.
+    // We'll use 'temp_tests' inside the project root.
+
+    // Container path (where worker writes files)
+    // Assumes worker is running in /usr/src/app/src/workers or similar, and project root is /usr/src/app
+    const projectRoot = path.resolve(__dirname, "../..");
+    const tempDir = path.join(projectRoot, "temp_tests", `sub-${subId}`);
+    console.log(`[worker] Container tempDir: ${tempDir}`);
+
+    // Host path (what we pass to docker -v)
+    let hostTempDir = tempDir; // Default to same path if no host dir specified (e.g. running locally without docker)
+    if (hostSubmissionsDir) {
+        // HOST_SUBMISSIONS_DIR points to .../src/core/Submission
+        // We want .../temp_tests
+        // Use path.win32 because host is Windows and we are in Linux container
+        hostTempDir = path.win32.resolve(hostSubmissionsDir, "..\\..\\..\\temp_tests", `sub-${subId}`);
+    }
+    console.log(`[worker] Host tempDir: ${hostTempDir}`);
+
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -36,13 +59,21 @@ async function runRunnerForAllTests(
         const outputFile = path.join(tempDir, `output${index + 1}.out`);
         fs.writeFileSync(inputFile, tc.input);
         fs.writeFileSync(outputFile, tc.expectedOutput);
+        console.log(`[worker] Wrote test case ${index + 1} to ${inputFile}`);
     });
 
     const submissionBase = path.resolve(__dirname, "../core/Submission", subId);
-    const hostSubmissionsDir = process.env.HOST_SUBMISSIONS_DIR || "";
-    const hostSubmissionBase = hostSubmissionsDir
-        ? path.join(hostSubmissionsDir, subId)
-        : submissionBase;
+
+    // Force Windows style paths for host directories to ensure Docker on Windows works
+    // BUT replace backslashes with forward slashes because Docker on Windows often prefers them
+    let hostSubmissionBase = submissionBase;
+    if (hostSubmissionsDir) {
+        // Normalize and ensure backslashes
+        const normalizedHostDir = path.win32.normalize(hostSubmissionsDir);
+        hostSubmissionBase = path.win32.join(normalizedHostDir, subId);
+        // Convert to forward slashes
+        hostSubmissionBase = hostSubmissionBase.replace(/\\/g, '/');
+    }
 
     // Read meta.json
     if (!fs.existsSync(submissionBase)) {
@@ -86,7 +117,11 @@ async function runRunnerForAllTests(
     // Mount code and test files
     const mounts: string[] = [];
     if (hostSubmissionsDir) {
-        const hostCode = path.join(hostSubmissionBase, "code");
+        let hostCode = path.win32.join(hostSubmissionBase, "code");
+        // Convert to forward slashes
+        hostCode = hostCode.replace(/\\/g, '/');
+
+        console.log(`[worker] Mounting host code path: ${hostCode}`);
         mounts.push("-v", `${hostCode}:/code:ro`);
     } else {
         const mountCode = path.join(submissionBase, "code");
@@ -94,10 +129,13 @@ async function runRunnerForAllTests(
     }
 
     // Mount temporary test directory
-    mounts.push("-v", `${tempDir}:/tests:ro`);
+    // Convert to forward slashes
+    const hostTempDirForward = hostTempDir.replace(/\\/g, '/');
+    mounts.push("-v", `${hostTempDirForward}:/tests:ro`);
 
     const args = [
         "run",
+        "-i",             // <--- ADDED THIS
         "--rm",
         "--network",
         "none",
@@ -117,12 +155,17 @@ async function runRunnerForAllTests(
     });
 
     // Cleanup temporary directory
-    cleanupTempDir(tempDir);
+    // cleanupTempDir(tempDir); // 👈 DISABLED FOR DEBUGGING
 
     if (proc.error) {
         console.error("[worker] docker run error", proc.error);
         return { status: "error", message: String(proc.error) };
     }
+
+    // Log raw output for debugging
+    console.log("[worker] runner stdout:", proc.stdout);
+    console.log("[worker] runner stderr:", proc.stderr);
+
     if (proc.status !== 0) {
         console.error("[worker] runner exit code", proc.status, proc.stderr);
         try {
@@ -143,6 +186,7 @@ async function runRunnerForAllTests(
         }
         return result;
     } catch (e) {
+        console.error("[worker] invalid runner output", proc.stdout);
         return {
             status: "error",
             message: "invalid runner output",

@@ -2,7 +2,9 @@ import { Course } from '../entities/course.entity';
 
 export interface ICourseRepo {
     save(course: Course): Promise<void>;
+    update(course: Course): Promise<void>;
     findById(id: string): Promise<Course | null>;
+    findAll(): Promise<Course[]>;
     list(): Promise<Course[]>;
     findByProfessor(professorId: string): Promise<Course[]>;
     findByStudent(studentId: string): Promise<Course[]>;

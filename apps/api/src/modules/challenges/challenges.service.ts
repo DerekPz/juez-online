@@ -11,11 +11,19 @@ export class ChallengesService {
     private readonly createUC: CreateChallengeUseCase,
     private readonly listUC: ListChallengesUseCase,
     private readonly getUC: GetChallengeUseCase,
-    private readonly publishUC: PublishChallengeUseCase,   
-    private readonly archiveUC: ArchiveChallengeUseCase,   
-  ) {}
+    private readonly publishUC: PublishChallengeUseCase,
+    private readonly archiveUC: ArchiveChallengeUseCase,
+  ) { }
 
-  create(input: { id: string; title: string; description: string }) {
+  create(input: {
+    id: string;
+    title: string;
+    description: string;
+    difficulty?: any;
+    timeLimit?: number;
+    memoryLimit?: number;
+    tags?: string[];
+  }) {
     return this.createUC.execute(input);
   }
   list() {

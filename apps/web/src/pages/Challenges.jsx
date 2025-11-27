@@ -42,8 +42,8 @@ const Challenges = () => {
                         <div key={challenge.id} className="challenge-card">
                             <div className="challenge-header">
                                 <h3 className="challenge-title">{challenge.title}</h3>
-                                <span className={`difficulty-badge ${challenge.difficulty.toLowerCase()}`}>
-                                    {challenge.difficulty}
+                                <span className={`difficulty-badge ${(challenge.difficulty || 'medium').toLowerCase()}`}>
+                                    {challenge.difficulty || 'Medium'}
                                 </span>
                             </div>
                             <p className="challenge-desc">{challenge.description}</p>

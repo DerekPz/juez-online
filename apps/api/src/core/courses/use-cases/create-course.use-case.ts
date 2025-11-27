@@ -1,5 +1,5 @@
-import { Course } from '../../../core/courses/entities/course.entity';
-import { ICourseRepo } from '../../../core/courses/interfaces/course.repo';
+import { Course } from '../entities/course.entity';
+import { ICourseRepo } from '../interfaces/course.repo';
 
 export class CreateCourseUseCase {
     constructor(private courseRepo: ICourseRepo) { }
@@ -11,12 +11,16 @@ export class CreateCourseUseCase {
         groupNumber: number;
         professorId: string;
     }): Promise<Course> {
+        // Generate enrollment code: COURSE-PERIODG# (e.g., CS101-20251G1)
+        const enrollmentCode = `${input.code.toUpperCase()}-${input.period.replace('-', '')}G${input.groupNumber}`;
+
         const course = Course.create({
             name: input.name,
             code: input.code,
             period: input.period,
             groupNumber: input.groupNumber,
             professorId: input.professorId,
+            enrollmentCode,
         });
 
         await this.courseRepo.save(course);

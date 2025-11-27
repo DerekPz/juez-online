@@ -7,6 +7,7 @@ export class Course {
         public code: string,
         public period: string,
         public groupNumber: number,
+        public enrollmentCode: string | null,
         public readonly professorId: string,
         public readonly createdAt: Date,
         public updatedAt: Date,
@@ -18,6 +19,7 @@ export class Course {
         period: string;
         groupNumber: number;
         professorId: string;
+        enrollmentCode?: string;
     }) {
         if (!params.name || params.name.trim().length < 3) {
             throw new Error('Course name must be at least 3 characters');
@@ -39,6 +41,7 @@ export class Course {
             params.code.trim(),
             params.period.trim(),
             params.groupNumber,
+            params.enrollmentCode || null,
             params.professorId,
             now,
             now,
@@ -51,6 +54,7 @@ export class Course {
         code: string;
         period: string;
         group_number: number;
+        enrollment_code?: string | null;
         professor_id: string;
         created_at: Date | string;
         updated_at: Date | string;
@@ -61,6 +65,7 @@ export class Course {
             row.code,
             row.period,
             row.group_number,
+            row.enrollment_code || null,
             row.professor_id,
             new Date(row.created_at),
             new Date(row.updated_at),
