@@ -16,13 +16,18 @@ async function runRunnerForAllTests(
     subId: string,
     challengeId: string,
     testCaseRepo: PostgresTestCaseRepo,
-    pool: any
+    pool: any,
 ) {
     // Get test cases from database
     const testCases = await testCaseRepo.findByChallengeId(challengeId);
-    console.log(`[worker] Found ${testCases.length} test cases for challenge ${challengeId}`);
+    console.log(
+        `[worker] Found ${testCases.length} test cases for challenge ${challengeId}`,
+    );
     if (testCases.length === 0) {
-        return { status: "error", message: "No test cases found for this challenge" };
+        return {
+            status: "error",
+            message: "No test cases found for this challenge",
+        };
     }
 
     const hostSubmissionsDir = process.env.HOST_SUBMISSIONS_DIR || "";
@@ -40,12 +45,50 @@ async function runRunnerForAllTests(
     console.log(`[worker] Container tempDir: ${tempDir}`);
 
     // Host path (what we pass to docker -v)
-    let hostTempDir = tempDir; // Default to same path if no host dir specified (e.g. running locally without docker)
+    let hostTempDir = tempDir;
     if (hostSubmissionsDir) {
         // HOST_SUBMISSIONS_DIR points to .../src/core/Submission
         // We want .../temp_tests
-        // Use path.win32 because host is Windows and we are in Linux container
-        hostTempDir = path.win32.resolve(hostSubmissionsDir, "..\\..\\..\\temp_tests", `sub-${subId}`);
+        // We are in a Linux container, so we use path.resolve.
+        // We assume HOST_SUBMISSIONS_DIR is an absolute path on the host.
+        // If it's passed correctly from docker-compose, we can just resolve relative to it.
+        // However, we can't use path.resolve(hostSubmissionsDir, ...) if we are inside the container
+        // and hostSubmissionsDir is a path on the host system (which might be different).
+        // But here, we just want to construct the string for the volume mount.
+
+        // If HOST_SUBMISSIONS_DIR is /path/to/apps/api/src/core/Submission
+        // We want /path/to/temp_tests/sub-ID
+
+        // Go up 3 levels: .../src/core/Submission -> .../src/core -> .../src -> .../apps/api -> NO wait
+        // The previous code did: ..\..\..\temp_tests
+        // .../src/core/Submission (1) -> .../src/core (2) -> .../src (3) -> .../apps/api (4) ??
+        // Let's look at the structure:
+        // apps/api/src/core/Submission
+        // apps/api/temp_tests (This seems to be where it wants to go, based on projectRoot)
+
+        // projectRoot in worker is .../apps/api (derived from __dirname/../..)
+        // tempDir is projectRoot/temp_tests/sub-ID
+
+        // So we need to go up from Submission to apps/api.
+        // src/core/Submission -> src/core -> src -> apps/api. That is 3 '..' if we are in Submission.
+        // Let's just use string manipulation to be safe since we are manipulating a path that might not exist inside the container.
+
+        const submissionDirParent = path.dirname(
+            path.dirname(path.dirname(hostSubmissionsDir)),
+        );
+        // If hostSubmissionsDir is /.../src/core/Submission
+        // dirname -> /.../src/core
+        // dirname -> /.../src
+        // dirname -> /.../apps/api (This is where temp_tests should be?)
+
+        // Wait, the previous code was: path.win32.resolve(hostSubmissionsDir, "..\\..\\..\\temp_tests", `sub-${subId}`);
+        // That means it went up 3 levels.
+
+        hostTempDir = path.join(
+            submissionDirParent,
+            "temp_tests",
+            `sub-${subId}`,
+        );
     }
     console.log(`[worker] Host tempDir: ${hostTempDir}`);
 
@@ -64,15 +107,9 @@ async function runRunnerForAllTests(
 
     const submissionBase = path.resolve(__dirname, "../core/Submission", subId);
 
-    // Force Windows style paths for host directories to ensure Docker on Windows works
-    // BUT replace backslashes with forward slashes because Docker on Windows often prefers them
     let hostSubmissionBase = submissionBase;
     if (hostSubmissionsDir) {
-        // Normalize and ensure backslashes
-        const normalizedHostDir = path.win32.normalize(hostSubmissionsDir);
-        hostSubmissionBase = path.win32.join(normalizedHostDir, subId);
-        // Convert to forward slashes
-        hostSubmissionBase = hostSubmissionBase.replace(/\\/g, '/');
+        hostSubmissionBase = path.join(hostSubmissionsDir, subId);
     }
 
     // Read meta.json
@@ -103,8 +140,8 @@ async function runRunnerForAllTests(
 
     // Get time limit from challenge
     const challengeResult = await pool.query(
-        'SELECT * FROM challenges WHERE id = $1',
-        [challengeId]
+        "SELECT * FROM challenges WHERE id = $1",
+        [challengeId],
     );
     const timeLimit = challengeResult.rows[0]?.time_limit || 1500;
 
@@ -117,9 +154,7 @@ async function runRunnerForAllTests(
     // Mount code and test files
     const mounts: string[] = [];
     if (hostSubmissionsDir) {
-        let hostCode = path.win32.join(hostSubmissionBase, "code");
-        // Convert to forward slashes
-        hostCode = hostCode.replace(/\\/g, '/');
+        let hostCode = path.join(hostSubmissionBase, "code");
 
         console.log(`[worker] Mounting host code path: ${hostCode}`);
         mounts.push("-v", `${hostCode}:/code:ro`);
@@ -129,13 +164,11 @@ async function runRunnerForAllTests(
     }
 
     // Mount temporary test directory
-    // Convert to forward slashes
-    const hostTempDirForward = hostTempDir.replace(/\\/g, '/');
-    mounts.push("-v", `${hostTempDirForward}:/tests:ro`);
+    mounts.push("-v", `${hostTempDir}:/tests:ro`);
 
     const args = [
         "run",
-        "-i",             // <--- ADDED THIS
+        "-i", // <--- ADDED THIS
         "--rm",
         "--network",
         "none",
@@ -178,11 +211,22 @@ async function runRunnerForAllTests(
         const result = JSON.parse(proc.stdout);
         // Calculate score based on passed test cases
         if (result.cases && Array.isArray(result.cases)) {
-            const totalPoints = testCases.reduce((sum, tc) => sum + tc.points, 0);
-            const earnedPoints = result.cases.reduce((sum: number, c: any, idx: number) => {
-                return sum + (c.status === "OK" ? testCases[idx].points : 0);
-            }, 0);
-            result.score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+            const totalPoints = testCases.reduce(
+                (sum, tc) => sum + tc.points,
+                0,
+            );
+            const earnedPoints = result.cases.reduce(
+                (sum: number, c: any, idx: number) => {
+                    return (
+                        sum + (c.status === "OK" ? testCases[idx].points : 0)
+                    );
+                },
+                0,
+            );
+            result.score =
+                totalPoints > 0
+                    ? Math.round((earnedPoints / totalPoints) * 100)
+                    : 0;
         }
         return result;
     } catch (e) {
@@ -247,7 +291,7 @@ async function main() {
                 subId,
                 current.challengeId,
                 testCaseRepo,
-                pool
+                pool,
             );
 
             const duration = Date.now() - startTime;
@@ -256,7 +300,10 @@ async function main() {
                 current.fail();
                 await submissionRepo.save(current);
                 metricsCollector.incrementSubmissionsFailed();
-                logger.warn("No runner result", { submissionId: subId, duration });
+                logger.warn("No runner result", {
+                    submissionId: subId,
+                    duration,
+                });
                 continue;
             }
 
@@ -285,9 +332,11 @@ async function main() {
             if (runnerResult.score !== undefined) {
                 current.updateScore(
                     runnerResult.score,
-                    runnerResult.timeMsTotal || 0
+                    runnerResult.timeMsTotal || 0,
                 );
-                metricsCollector.recordExecutionTime(runnerResult.timeMsTotal || 0);
+                metricsCollector.recordExecutionTime(
+                    runnerResult.timeMsTotal || 0,
+                );
             }
 
             await submissionRepo.save(current);

@@ -11,6 +11,7 @@ services:
         volumes:
             - ./apps/api:/usr/src/app
             - ./apps/api/data:/usr/src/app/data
+            - /usr/src/app/node_modules
         depends_on:
             - postgres
             - redis
@@ -22,7 +23,7 @@ services:
             - POSTGRES_DB=juez_db
             - REDIS_HOST=redis
             - REDIS_PORT=6379
-            - GEMINI_API_KEY=AIzaSyBrp6JirVfB33f99Bs9swflFery48A3Pa4
+            - GEMINI_API_KEY=AIzaSyC5Ek-xQDJBoKWjHYB9YhpxZzxqHW1fX-0
         networks:
             - judge_net
     postgres:
@@ -35,13 +36,7 @@ services:
             - "${POSTGRES_PORT:-5432}:5432"
         volumes:
             - pgdata:/var/lib/postgresql/data
-            - ./apps/api/migrations/001_create_challenges.sql:/docker-entrypoint-initdb.d/001_create_challenges.sql
-            - ./apps/api/migrations/002_create_submissions.sql:/docker-entrypoint-initdb.d/002_create_submissions.sql
-            - ./apps/api/migrations/003_create_users.sql:/docker-entrypoint-initdb.d/003_create_users.sql
-            - ./apps/api/migrations/004_create_test_cases.sql:/docker-entrypoint-initdb.d/004_create_test_cases.sql
-            - ./apps/api/migrations/005_add_challenge_limits.sql:/docker-entrypoint-initdb.d/005_add_challenge_limits.sql
-            - ./apps/api/migrations/006_create_courses.sql:/docker-entrypoint-initdb.d/006_create_courses.sql
-            - ./apps/api/migrations/007_add_submission_score.sql:/docker-entrypoint-initdb.d/007_add_submission_score.sql
+            - ./apps/api/migrations:/docker-entrypoint-initdb.d
         networks:
             - judge_net
 
@@ -52,7 +47,7 @@ services:
         ports:
             - "${REDIS_PORT:-6379}:6379"
         healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
+            test: [ "CMD", "redis-cli", "ping" ]
             interval: 5s
             timeout: 3s
             retries: 30
@@ -86,6 +81,7 @@ services:
             - ./apps/api:/usr/src/app
             - /var/run/docker.sock:/var/run/docker.sock
             - ./apps/api/data:/usr/src/app/data
+            - /usr/src/app/node_modules
         depends_on:
             - postgres
             - redis
@@ -97,12 +93,13 @@ services:
             - POSTGRES_DB=juez_db
             - REDIS_HOST=redis
             - REDIS_PORT=6379
-            - HOST_SUBMISSIONS_DIR=C:\Users\User\Documents\BK-PF\juez-online\apps\api\src\core\Submission
+            - HOST_SUBMISSIONS_DIR=/home/azkalagon/2025_2_Proyects/Backend/juez-online/apps/api/src/core/Submission
         networks:
             - judge_net
 
 volumes:
     pgdata:
+
 
 networks:
     judge_net:
