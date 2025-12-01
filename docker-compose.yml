@@ -22,6 +22,7 @@ services:
             - POSTGRES_DB=juez_db
             - REDIS_HOST=redis
             - REDIS_PORT=6379
+            - GEMINI_API_KEY=AIzaSyBrp6JirVfB33f99Bs9swflFery48A3Pa4
         networks:
             - judge_net
     postgres:

@@ -59,25 +59,49 @@
 .btn-secondary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 4px 12px rgba(0, 240, 255, 0.3));
 }
 
-.empty-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
-.empty-state h3 {
-    font-size: 1.5rem;
+.empty-state-title {
+    font-size: 1.75rem;
     margin-bottom: 1rem;
-    color: #00f0ff;
+    background: linear-gradient(135deg, #00f0ff, #7000ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
 }
 
-.empty-state p {
-    color: #a0a0a0;
+.empty-state-description {
+    color: #d0d0d0;
+    font-size: 1.1rem;
     line-height: 1.6;
+    margin-bottom: 0.75rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-state-hint {
+    color: #a0a0a0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    font-style: italic;
 }
 
 .courses-grid {

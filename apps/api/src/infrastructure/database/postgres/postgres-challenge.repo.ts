@@ -7,8 +7,8 @@ export class PostgresChallengeRepo implements IChallengeRepo {
 
   async save(ch: Challenge): Promise<void> {
     const sql = `
-      INSERT INTO public.challenges (id, title, description, status, time_limit, memory_limit, difficulty, tags, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO public.challenges (id, title, description, status, time_limit, memory_limit, difficulty, tags, input_format, output_format, constraints, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (id) DO UPDATE SET
         title = EXCLUDED.title,
         description = EXCLUDED.description,
@@ -17,6 +17,9 @@ export class PostgresChallengeRepo implements IChallengeRepo {
         memory_limit = EXCLUDED.memory_limit,
         difficulty = EXCLUDED.difficulty,
         tags = EXCLUDED.tags,
+        input_format = EXCLUDED.input_format,
+        output_format = EXCLUDED.output_format,
+        constraints = EXCLUDED.constraints,
         updated_at = NOW()
     `;
     const values = [
@@ -28,6 +31,9 @@ export class PostgresChallengeRepo implements IChallengeRepo {
       ch.memoryLimit,
       ch.difficulty,
       ch.tags,
+      ch.inputFormat,
+      ch.outputFormat,
+      ch.constraints,
       ch.createdAt,
       ch.updatedAt
     ];
@@ -36,7 +42,7 @@ export class PostgresChallengeRepo implements IChallengeRepo {
 
   async findById(id: string): Promise<Challenge | null> {
     const { rows } = await this.pool.query(
-      `SELECT id, title, description, status, time_limit, memory_limit, difficulty, tags, created_at, updated_at
+      `SELECT id, title, description, status, time_limit, memory_limit, difficulty, tags, input_format, output_format, constraints, created_at, updated_at
        FROM public.challenges WHERE id = $1 LIMIT 1`, [id],
     );
     if (rows.length === 0) return null;
@@ -45,7 +51,7 @@ export class PostgresChallengeRepo implements IChallengeRepo {
 
   async list(): Promise<Challenge[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, title, description, status, time_limit, memory_limit, difficulty, tags, created_at, updated_at
+      `SELECT id, title, description, status, time_limit, memory_limit, difficulty, tags, input_format, output_format, constraints, created_at, updated_at
        FROM public.challenges ORDER BY created_at DESC`,
     );
     return rows.map(Challenge.fromPersistence);

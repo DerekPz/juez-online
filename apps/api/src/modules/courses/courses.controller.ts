@@ -8,6 +8,8 @@ import { EnrollStudentUseCase } from '../../core/courses/use-cases/enroll-studen
 import { AssignChallengeUseCase } from '../../core/courses/use-cases/assign-challenge.use-case';
 import { ICourseRepo } from '../../core/courses/interfaces/course.repo';
 import { Inject } from '@nestjs/common';
+import { PG_POOL } from '../../infrastructure/database/postgres.provider';
+import { Pool } from 'pg';
 
 @Controller('courses')
 export class CoursesController {
@@ -17,6 +19,7 @@ export class CoursesController {
         private enrollStudent: EnrollStudentUseCase,
         private assignChallenge: AssignChallengeUseCase,
         @Inject('CourseRepo') private courseRepo: ICourseRepo,
+        @Inject(PG_POOL) private pool: Pool,
     ) { }
 
     @UseGuards(JwtAuthGuard)
@@ -238,7 +241,30 @@ export class CoursesController {
             throw new NotFoundException('Course not found');
         }
 
-        const students = await this.courseRepo.getStudents(id);
+        const studentIds = await this.courseRepo.getStudents(id);
+
+        // Fetch user details for each student
+        const students = await Promise.all(
+            studentIds.map(async (studentId) => {
+                try {
+                    const userResult = await this.pool.query(
+                        'SELECT id, username FROM users WHERE id = $1',
+                        [studentId]
+                    );
+                    if (userResult.rows.length > 0) {
+                        return {
+                            id: userResult.rows[0].id,
+                            username: userResult.rows[0].username,
+                        };
+                    }
+                    return { id: studentId, username: 'Unknown' };
+                } catch (error) {
+                    console.error('Error fetching user:', error);
+                    return { id: studentId, username: 'Unknown' };
+                }
+            })
+        );
+
         return { students };
     }
 
@@ -250,7 +276,34 @@ export class CoursesController {
             throw new NotFoundException('Course not found');
         }
 
-        const challenges = await this.courseRepo.getChallenges(id);
-        return { challenges };
+        const challengeIds = await this.courseRepo.getChallenges(id);
+
+        if (challengeIds.length === 0) {
+            return { challenges: [] };
+        }
+
+        try {
+            const query = `
+                SELECT * FROM challenges 
+                WHERE id = ANY($1)
+            `;
+            const result = await this.pool.query(query, [challengeIds]);
+
+            const challenges = result.rows.map(row => ({
+                id: row.id,
+                title: row.title,
+                description: row.description,
+                difficulty: row.difficulty,
+                timeLimit: row.time_limit,
+                memoryLimit: row.memory_limit,
+                status: row.status,
+                createdAt: row.created_at
+            }));
+
+            return { challenges };
+        } catch (error) {
+            console.error('Error fetching course challenges:', error);
+            return { challenges: [] };
+        }
     }
 }

@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
+import AIAssistantModal from '../components/AIAssistantModal';
 import './CreateChallenge.css';
 
 const CreateChallenge = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('basic');
     const [showPreview, setShowPreview] = useState(false);
+    const [showAIModal, setShowAIModal] = useState(false);
+
+    // Get courseId from URL query params
+    const queryParams = new URLSearchParams(location.search);
+    const courseId = queryParams.get('courseId');
 
     const [formData, setFormData] = useState({
         title: '',
@@ -19,7 +26,8 @@ const CreateChallenge = () => {
         outputFormat: '',
         constraints: '',
         status: 'draft',
-        assignedCourses: []
+        assignedCourses: [],
+        courseId: courseId || null
     });
 
     const [publicTestCases, setPublicTestCases] = useState([]);
@@ -104,8 +112,18 @@ const CreateChallenge = () => {
                 publicTestCases,
                 hiddenTestCases
             };
-            await client.post('/challenges', payload);
-            navigate('/challenges');
+
+            const response = await client.post('/challenges', payload);
+
+            // If challenge was created for a course, assign it
+            if (formData.courseId && response.data.id) {
+                await client.post(`/courses/${formData.courseId}/challenges`, {
+                    challengeId: response.data.id
+                });
+                navigate(`/courses/${formData.courseId}`);
+            } else {
+                navigate('/challenges');
+            }
         } catch (err) {
             setError('Failed to create challenge. Please try again.');
             console.error(err);
@@ -114,12 +132,59 @@ const CreateChallenge = () => {
         }
     };
 
+    const handleApplyIdea = (idea) => {
+        setFormData(prev => ({
+            ...prev,
+            title: idea.title,
+            description: idea.description,
+            difficulty: idea.difficulty || 'medium',
+            tags: idea.tags || [],
+            inputFormat: idea.inputFormat || '',
+            outputFormat: idea.outputFormat || '',
+            constraints: idea.constraints || ''
+        }));
+
+        if (idea.publicTestCases) {
+            setPublicTestCases(idea.publicTestCases);
+        }
+        if (idea.hiddenTestCases) {
+            setHiddenTestCases(idea.hiddenTestCases);
+        }
+
+        // If we have test cases, switch to test cases tab to show them
+        if (idea.publicTestCases?.length > 0 || idea.hiddenTestCases?.length > 0) {
+            setActiveTab('testcases');
+        } else {
+            setActiveTab('details');
+        }
+    };
+
+    const handleApplyTestCases = (cases) => {
+        if (cases.publicTestCases) setPublicTestCases(cases.publicTestCases);
+        if (cases.hiddenTestCases) setHiddenTestCases(cases.hiddenTestCases);
+        setActiveTab('testcases');
+    };
+
     return (
         <div className="create-challenge-page">
             <div className="page-header">
                 <h1>Create New Challenge</h1>
                 <p className="subtitle">Design a comprehensive coding challenge</p>
+                <button
+                    className="btn-ai-assist"
+                    onClick={() => setShowAIModal(true)}
+                >
+                    ✨ AI Assistant
+                </button>
             </div>
+
+            {showAIModal && (
+                <AIAssistantModal
+                    onClose={() => setShowAIModal(false)}
+                    onApplyIdea={handleApplyIdea}
+                    onApplyTestCases={handleApplyTestCases}
+                />
+            )}
 
             {error && <div className="error-message">{error}</div>}
 

@@ -13,6 +13,8 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ExamsModule } from './modules/exams/exams.module';
+import { AIModule } from './modules/ai/ai.module';
+
 
 
 @Module({
@@ -27,6 +29,7 @@ import { ExamsModule } from './modules/exams/exams.module';
     LeaderboardModule,
     MetricsModule,
     ExamsModule,
+    AIModule,
   ],
   controllers: [HealthController, DbController, CacheController],
   providers: [

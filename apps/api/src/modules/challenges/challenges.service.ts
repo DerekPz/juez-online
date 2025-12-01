@@ -23,6 +23,9 @@ export class ChallengesService {
     timeLimit?: number;
     memoryLimit?: number;
     tags?: string[];
+    inputFormat?: string;
+    outputFormat?: string;
+    constraints?: string;
   }) {
     return this.createUC.execute(input);
   }

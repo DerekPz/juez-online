@@ -38,8 +38,8 @@ const CreateCourse = () => {
     };
 
     const generateEnrollmentCode = () => {
-        const code = formData.code.toUpperCase().slice(0, 3) + '-' +
-            formData.period.replace('-', '') + 'G' + formData.groupNumber;
+        const code = formData.code.toUpperCase() + '-' +
+            formData.period.split('-').join('') + 'G' + formData.groupNumber;
         setFormData(prev => ({ ...prev, enrollmentCode: code }));
     };
 

@@ -11,6 +11,9 @@ export class Challenge {
     public memoryLimit: number,
     public difficulty: ChallengeDifficulty,
     public tags: string[],
+    public inputFormat: string,
+    public outputFormat: string,
+    public constraints: string,
     public readonly createdAt: Date,
     public updatedAt: Date,
   ) { }
@@ -24,6 +27,9 @@ export class Challenge {
     memory_limit?: number;
     difficulty?: ChallengeDifficulty;
     tags?: string[];
+    input_format?: string;
+    output_format?: string;
+    constraints?: string;
     created_at: Date | string;
     updated_at: Date | string;
   }) {
@@ -36,6 +42,9 @@ export class Challenge {
       row.memory_limit || 256,
       row.difficulty || 'medium',
       row.tags || [],
+      row.input_format || '',
+      row.output_format || '',
+      row.constraints || '',
       new Date(row.created_at),
       new Date(row.updated_at),
     );
@@ -49,6 +58,9 @@ export class Challenge {
     memoryLimit?: number;
     difficulty?: ChallengeDifficulty;
     tags?: string[];
+    inputFormat?: string;
+    outputFormat?: string;
+    constraints?: string;
   }) {
     if (!params.title || params.title.trim().length < 3) {
       throw new Error('Title must be at least 3 characters');
@@ -63,6 +75,9 @@ export class Challenge {
       params.memoryLimit || 256,
       params.difficulty || 'medium',
       params.tags || [],
+      params.inputFormat || '',
+      params.outputFormat || '',
+      params.constraints || '',
       now,
       now,
     );
@@ -87,6 +102,13 @@ export class Challenge {
 
   updateDescription(newDesc: string) {
     this.description = (newDesc ?? '').trim();
+    this.updatedAt = new Date();
+  }
+
+  updateDetails(inputFormat: string, outputFormat: string, constraints: string) {
+    this.inputFormat = inputFormat;
+    this.outputFormat = outputFormat;
+    this.constraints = constraints;
     this.updatedAt = new Date();
   }
 

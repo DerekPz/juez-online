@@ -12,7 +12,7 @@ export class CreateCourseUseCase {
         professorId: string;
     }): Promise<Course> {
         // Generate enrollment code: COURSE-PERIODG# (e.g., CS101-20251G1)
-        const enrollmentCode = `${input.code.toUpperCase()}-${input.period.replace('-', '')}G${input.groupNumber}`;
+        const enrollmentCode = `${input.code.toUpperCase()}-${input.period.split('-').join('')}G${input.groupNumber}`;
 
         const course = Course.create({
             name: input.name,

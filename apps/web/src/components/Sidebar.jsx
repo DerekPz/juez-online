@@ -102,11 +102,18 @@ const Sidebar = () => {
             </nav>
 
             <div className="sidebar-footer">
-                <div className="user-info">
-                    <span className="username">{user?.username}</span>
-                    <span className="role">{user?.role}</span>
+                <div className="user-profile">
+                    <div className="user-avatar">
+                        {user?.username?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="user-details">
+                        <span className="username">{user?.username}</span>
+                        <span className="role">{user?.role}</span>
+                    </div>
                 </div>
-                <button onClick={logout} className="btn-logout">Logout</button>
+                <button onClick={logout} className="btn-logout">
+                    <span>🚪</span> Logout
+                </button>
             </div>
         </aside>
     );
